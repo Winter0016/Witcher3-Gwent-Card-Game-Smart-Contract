@@ -235,6 +235,7 @@ struct ArenaEntry {
     uint256 enterTime;
     uint256 waitReward;
     bool isMatched;
+    uint256[] matchIds;    // Match history
 }
 ```
 
@@ -253,13 +254,19 @@ struct Match {
     bytes32 player2R1Hash;
     bytes32 player2R2Hash;
     bytes32 player2R3Hash;
-    // Reveal phase - actual cards
-    uint256[] player1R1Cards;
-    uint256[] player1R2Cards;
-    uint256[] player1R3Cards;
-    uint256[] player2R1Cards;
-    uint256[] player2R2Cards;
-    uint256[] player2R3Cards;
+    // Reveal phase - actual cards (ERC1155 style ID+Amount pairs)
+    uint256[] player1R1Ids;
+    uint256[] player1R1Amounts;
+    uint256[] player1R2Ids;
+    uint256[] player1R2Amounts;
+    uint256[] player1R3Ids;
+    uint256[] player1R3Amounts;
+    uint256[] player2R1Ids;
+    uint256[] player2R1Amounts;
+    uint256[] player2R2Ids;
+    uint256[] player2R2Amounts;
+    uint256[] player2R3Ids;
+    uint256[] player2R3Amounts;
     uint256 stakeAmount;
     uint256 poolAmount;
     Phase phase;
@@ -307,16 +314,17 @@ To ensure the contract remains gas-efficient as player count scales, the `waitin
 4. After 3 days → anyone can call `timeoutCommit()`
 
 #### Phase 3: Reveal (1 day)
-1. Both players call `revealPlays(matchId, r1Cards[], r2Cards[], r3Cards[], salt)`
-2. Contract verifies: keccak256(cards + salt) == committed hash
+1. Both players call `revealPlays(matchId, r1Ids, r1Amounts, r2Ids, r2Amounts, r3Ids, r3Amounts, salt)`
+2. Contract verifies: `keccak256(ids + amounts + salt) == committed hash`
 3. If both reveal → Match enters **Phase 4: WaitingForResolution**
 4. After 1 day → anyone can call `timeoutReveal()`
 
 #### Phase 4: Match Resolution (Automated)
 1. After both players reveal their cards, the match phase becomes `WaitingForResolution`.
-2. Chainlink Automation detects the state change.
-3. Keepers call `performUpkeep` to execute `_resolveMatch` and distribute results.
-4. This ensures players never pay for the high-computational costs of game logic scoring.
+2. Chainlink Automation detects the state change and calls `performUpkeep`.
+3. `_resolveMatch` executes. It verifies `revealedCounts[id] <= originalAmounts[index]` for each player, sums the `amounts` for scores, and checks for `< 5 cards` in R1/R2.
+4. **Slashing**: If a player cheats, score=0. If both cheat, the pool is awarded to the system owner.
+5. This ensures players never manually pay gas for the high-computational costs of game logic scoring.
 
 ### Owner Functions
 | Function | Description |
@@ -334,16 +342,16 @@ To ensure the contract remains gas-efficient as player count scales, the `waitin
 | `enterArena(faction, cardIds[], cardAmounts[])` | Enter arena (no stake param) |
 | `checkUpkeep(bytes)` | Chainlink: check global queue for opponents OR resolutions |
 | `performUpkeep(bytes)` | Chainlink: execute match creation or resolution |
-| `commitPlays(matchId, r1Hash, r2Hash, r3Hash)` | Submit hidden plays |
-| `revealPlays(matchId, r1Cards[], r2Cards[], r3Cards[], salt)` | Reveal actual plays |
+| `commitPlays(matchId, r1Hash, r2Hash, r3Hash)` | Submit hidden plays (hashed ID+Amount arrays) |
+| `revealPlays(...)` | Reveal actual plays (ID+Amount parallel arrays) |
 | `cancelEntry()` | Cancel if not matched (get cards + stake back) |
-| `claimRewards(matchId)` | Claim winnings |
-| `claimCards(matchId)` | Get back staked cards |
+| `claimRewards(matchId)` | Claim winnings (auto-resets queue state) |
+| `claimCards(matchId)` | Get back staked cards (auto-resets queue state) |
 | `timeoutCommit(matchId)` | Trigger if commit deadline passed |
 | `timeoutReveal(matchId)` | Trigger if reveal deadline passed |
 | `getWaitingPlayers()` | View all waiting players |
 | `getMatchInfo(matchId)` | View match details |
-| `getPlayerEntry(player)` | View player entry |
+| `getPlayerEntry(player)` | View player entry (includes latestMatchId history) |
 
 ### Timeout Handling
 - Anyone can call timeout functions after deadline

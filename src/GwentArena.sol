@@ -44,6 +44,7 @@ contract GwentArena is ERC1155Holder, AutomationCompatibleInterface {
         uint256 stakeAmount;
         uint256 enterTime;
         uint256 waitReward;
+        uint256[] matchIds;
         bool isMatched;
     }
 
@@ -58,12 +59,18 @@ contract GwentArena is ERC1155Holder, AutomationCompatibleInterface {
         bytes32 player2R1Hash;
         bytes32 player2R2Hash;
         bytes32 player2R3Hash;
-        uint256[] player1R1Cards;
-        uint256[] player1R2Cards;
-        uint256[] player1R3Cards;
-        uint256[] player2R1Cards;
-        uint256[] player2R2Cards;
-        uint256[] player2R3Cards;
+        uint256[] player1R1Ids;
+        uint256[] player1R1Amounts;
+        uint256[] player1R2Ids;
+        uint256[] player1R2Amounts;
+        uint256[] player1R3Ids;
+        uint256[] player1R3Amounts;
+        uint256[] player2R1Ids;
+        uint256[] player2R1Amounts;
+        uint256[] player2R2Ids;
+        uint256[] player2R2Amounts;
+        uint256[] player2R3Ids;
+        uint256[] player2R3Amounts;
         uint256 stakeAmount;
         uint256 poolAmount;
         Phase phase;
@@ -241,6 +248,7 @@ contract GwentArena is ERC1155Holder, AutomationCompatibleInterface {
             stakeAmount: entryFee,
             enterTime: block.timestamp,
             waitReward: 0,
+            matchIds: new uint256[](0),
             isMatched: false
         });
 
@@ -281,7 +289,20 @@ contract GwentArena is ERC1155Holder, AutomationCompatibleInterface {
         newMatch.commitDeadline = block.timestamp + commitTimeout;
         newMatch.result = MatchResult.Pending;
 
+        entry1.matchIds.push(matchId);
+        entry2.matchIds.push(matchId);
+
         emit MatchCreated(matchId, player1, player2);
+    }
+
+    function getPlayerLatestMatchId(
+        address player
+    ) external view returns (uint256) {
+        ArenaEntry storage entry = playerEntries[player];
+        if (entry.matchIds.length == 0) {
+            return 0; // Or handle as an error, depending on desired behavior
+        }
+        return entry.matchIds[entry.matchIds.length - 1];
     }
 
     function commitPlays(
@@ -328,9 +349,12 @@ contract GwentArena is ERC1155Holder, AutomationCompatibleInterface {
 
     function revealPlays(
         uint256 matchId,
-        uint256[] calldata r1Cards,
-        uint256[] calldata r2Cards,
-        uint256[] calldata r3Cards,
+        uint256[] calldata r1Ids,
+        uint256[] calldata r1Amounts,
+        uint256[] calldata r2Ids,
+        uint256[] calldata r2Amounts,
+        uint256[] calldata r3Ids,
+        uint256[] calldata r3Amounts,
         uint256 salt
     ) external {
         Match storage match_ = matches[matchId];
@@ -344,12 +368,13 @@ contract GwentArena is ERC1155Holder, AutomationCompatibleInterface {
             "Reveal timeout passed"
         );
 
-        bytes32 r1Hash = keccak256(abi.encode(r1Cards, salt));
-        bytes32 r2Hash = keccak256(abi.encode(r2Cards, salt));
-        bytes32 r3Hash = keccak256(abi.encode(r3Cards, salt));
+        bytes32 r1Hash = keccak256(abi.encode(r1Ids, r1Amounts, salt));
+        bytes32 r2Hash = keccak256(abi.encode(r2Ids, r2Amounts, salt));
+        bytes32 r3Hash = keccak256(abi.encode(r3Ids, r3Amounts, salt));
 
-        require(r1Cards.length >= MIN_ROUND_CARDS, "R1: min 5 cards");
-        require(r2Cards.length >= MIN_ROUND_CARDS, "R2: min 5 cards");
+        // Simplified revealPlays for gas efficiency.
+        // Rule checks (min 5 cards in R1/R2 and deck integrity)
+        // are offloaded to Automated Resolution Phase.
 
         bool isPlayer1 = msg.sender == match_.player1;
 
@@ -357,21 +382,25 @@ contract GwentArena is ERC1155Holder, AutomationCompatibleInterface {
             require(r1Hash == match_.player1R1Hash, "R1 hash mismatch");
             require(r2Hash == match_.player1R2Hash, "R2 hash mismatch");
             require(r3Hash == match_.player1R3Hash, "R3 hash mismatch");
-            match_.player1R1Cards = r1Cards;
-            match_.player1R2Cards = r2Cards;
-            match_.player1R3Cards = r3Cards;
+            match_.player1R1Ids = r1Ids;
+            match_.player1R1Amounts = r1Amounts;
+            match_.player1R2Ids = r2Ids;
+            match_.player1R2Amounts = r2Amounts;
+            match_.player1R3Ids = r3Ids;
+            match_.player1R3Amounts = r3Amounts;
         } else {
             require(r1Hash == match_.player2R1Hash, "R1 hash mismatch");
             require(r2Hash == match_.player2R2Hash, "R2 hash mismatch");
             require(r3Hash == match_.player2R3Hash, "R3 hash mismatch");
-            match_.player2R1Cards = r1Cards;
-            match_.player2R2Cards = r2Cards;
-            match_.player2R3Cards = r3Cards;
+            match_.player2R1Ids = r1Ids;
+            match_.player2R1Amounts = r1Amounts;
+            match_.player2R2Ids = r2Ids;
+            match_.player2R2Amounts = r2Amounts;
+            match_.player2R3Ids = r3Ids;
+            match_.player2R3Amounts = r3Amounts;
         }
 
-        if (
-            match_.player1R1Cards.length > 0 && match_.player2R1Cards.length > 0
-        ) {
+        if (match_.player1R1Ids.length > 0 && match_.player2R1Ids.length > 0) {
             match_.phase = Phase.WaitingForResolution;
             resolutionQueue.push(matchId);
         }
@@ -382,14 +411,72 @@ contract GwentArena is ERC1155Holder, AutomationCompatibleInterface {
     function _resolveMatch(uint256 matchId) internal {
         Match storage match_ = matches[matchId];
 
-        uint256 score1 = _calculateScore(match_.player1R1Cards) +
-            _calculateScore(match_.player1R2Cards) +
-            _calculateScore(match_.player1R3Cards);
-        uint256 score2 = _calculateScore(match_.player2R1Cards) +
-            _calculateScore(match_.player2R2Cards) +
-            _calculateScore(match_.player2R3Cards);
+        // 1. Verify Deck Integrity & Card Rules (Slashing)
+        bool p1Valid = _verifyDeckIntegrity(
+            match_.player1,
+            match_.player1R1Ids,
+            match_.player1R1Amounts,
+            match_.player1R2Ids,
+            match_.player1R2Amounts,
+            match_.player1R3Ids,
+            match_.player1R3Amounts
+        );
+        bool p2Valid = _verifyDeckIntegrity(
+            match_.player2,
+            match_.player2R1Ids,
+            match_.player2R1Amounts,
+            match_.player2R2Ids,
+            match_.player2R2Amounts,
+            match_.player2R3Ids,
+            match_.player2R3Amounts
+        );
 
-        if (score1 > score2) {
+        // Rule: Min 5 cards in R1 and R2
+        if (
+            _calculateScore(match_.player1R1Amounts) < MIN_ROUND_CARDS ||
+            _calculateScore(match_.player1R2Amounts) < MIN_ROUND_CARDS
+        ) p1Valid = false;
+        if (
+            _calculateScore(match_.player2R1Amounts) < MIN_ROUND_CARDS ||
+            _calculateScore(match_.player2R2Amounts) < MIN_ROUND_CARDS
+        ) p2Valid = false;
+
+        uint256 score1 = 0;
+        uint256 score2 = 0;
+
+        if (p1Valid) {
+            score1 =
+                _calculateScore(match_.player1R1Amounts) +
+                _calculateScore(match_.player1R2Amounts) +
+                _calculateScore(match_.player1R3Amounts);
+        }
+        if (p2Valid) {
+            score2 =
+                _calculateScore(match_.player2R1Amounts) +
+                _calculateScore(match_.player2R2Amounts) +
+                _calculateScore(match_.player2R3Amounts);
+        }
+
+        // Special Case: Both Cheated -> System earns everything
+        if (!p1Valid && !p2Valid) {
+            match_.result = MatchResult.Draw;
+            // Send pool to system/owner
+            cardToken.mintGameCurrency(owner, match_.poolAmount);
+            emit MatchResolved(matchId, MatchResult.Draw, address(0));
+            return;
+        }
+
+        // Special Case: If only one cheated, the other wins automatically
+        // This is naturally handled by score1=0 or score2=0 unless it's a tie at 0
+        // But if score1 == score2 and one is invalid, the valid one should win.
+
+        if (p1Valid && !p2Valid) {
+            match_.result = MatchResult.Player1Wins;
+            pendingRewards[match_.player1] = match_.poolAmount;
+        } else if (p2Valid && !p1Valid) {
+            match_.result = MatchResult.Player2Wins;
+            pendingRewards[match_.player2] = match_.poolAmount;
+        } else if (score1 > score2) {
             match_.result = MatchResult.Player1Wins;
             pendingRewards[match_.player1] = match_.poolAmount;
         } else if (score2 > score1) {
@@ -410,10 +497,69 @@ contract GwentArena is ERC1155Holder, AutomationCompatibleInterface {
         emit MatchResolved(matchId, match_.result, winner);
     }
 
+    function _verifyDeckIntegrity(
+        address player,
+        uint256[] memory r1Ids,
+        uint256[] memory r1Amounts,
+        uint256[] memory r2Ids,
+        uint256[] memory r2Amounts,
+        uint256[] memory r3Ids,
+        uint256[] memory r3Amounts
+    ) internal view returns (bool) {
+        ArenaEntry storage entry = playerEntries[player];
+        uint256[] storage originalIds = entry.cardIds;
+        uint256[] storage originalAmounts = entry.cardAmounts;
+
+        if (r1Ids.length != r1Amounts.length) return false;
+        if (r2Ids.length != r2Amounts.length) return false;
+        if (r3Ids.length != r3Amounts.length) return false;
+
+        // Use a memory array to track usage. Max ID is 144 based on rules.
+        uint256[] memory revealedCounts = new uint256[](145);
+
+        // Fill revealed counts using amounts
+        for (uint256 i = 0; i < r1Ids.length; i++) {
+            if (r1Ids[i] > 144) return false;
+            revealedCounts[r1Ids[i]] += r1Amounts[i];
+        }
+        for (uint256 i = 0; i < r2Ids.length; i++) {
+            if (r2Ids[i] > 144) return false;
+            revealedCounts[r2Ids[i]] += r2Amounts[i];
+        }
+        for (uint256 i = 0; i < r3Ids.length; i++) {
+            if (r3Ids[i] > 144) return false;
+            revealedCounts[r3Ids[i]] += r3Amounts[i];
+        }
+
+        // Verify against original entry
+        for (uint256 i = 0; i < originalIds.length; i++) {
+            uint256 id = originalIds[i];
+            if (revealedCounts[id] > originalAmounts[i]) {
+                return false; // Cheated: more cards revealed than owned in entry
+            }
+            // Clear used counts so we can detect "phantom" cards later
+            revealedCounts[id] = 0;
+        }
+
+        // Ensure no cards were revealed that WEREN'T in the original deck at all
+        for (uint256 i = 0; i < r1Ids.length; i++)
+            if (revealedCounts[r1Ids[i]] > 0) return false;
+        for (uint256 i = 0; i < r2Ids.length; i++)
+            if (revealedCounts[r2Ids[i]] > 0) return false;
+        for (uint256 i = 0; i < r3Ids.length; i++)
+            if (revealedCounts[r3Ids[i]] > 0) return false;
+
+        return true;
+    }
+
     function _calculateScore(
-        uint256[] memory cards
+        uint256[] memory amounts
     ) internal pure returns (uint256) {
-        return cards.length;
+        uint256 total = 0;
+        for (uint256 i = 0; i < amounts.length; i++) {
+            total += amounts[i];
+        }
+        return total;
     }
 
     function timeoutCommit(uint256 matchId) external {
@@ -453,8 +599,8 @@ contract GwentArena is ERC1155Holder, AutomationCompatibleInterface {
         require(match_.phase == Phase.WaitingForReveal, "Not in reveal phase");
         require(block.timestamp > match_.revealDeadline, "Reveal still active");
 
-        bool p1Revealed = match_.player1R1Cards.length > 0;
-        bool p2Revealed = match_.player2R1Cards.length > 0;
+        bool p1Revealed = match_.player1R1Ids.length > 0;
+        bool p2Revealed = match_.player2R1Ids.length > 0;
 
         uint256 callerReward = (match_.poolAmount * callerRewardPercent) / 100;
         uint256 remainingPool = match_.poolAmount - callerReward;
@@ -493,6 +639,13 @@ contract GwentArena is ERC1155Holder, AutomationCompatibleInterface {
 
         pendingRewards[msg.sender] = 0;
         cardToken.mintGameCurrency(msg.sender, reward);
+
+        // Allow re-entry after claiming results
+        ArenaEntry storage entry = playerEntries[msg.sender];
+        if (entry.isMatched) {
+            entry.enterTime = 0;
+            entry.isMatched = false;
+        }
 
         emit RewardsClaimed(msg.sender, reward);
     }
@@ -536,6 +689,13 @@ contract GwentArena is ERC1155Holder, AutomationCompatibleInterface {
         uint256[] storage deckAmounts = playerEntries[msg.sender].cardAmounts;
 
         cardToken.mintBatch(msg.sender, deckIds, deckAmounts, "");
+
+        // Allow re-entry after claiming cards
+        ArenaEntry storage entry = playerEntries[msg.sender];
+        if (entry.isMatched) {
+            entry.enterTime = 0;
+            entry.isMatched = false;
+        }
     }
 
     function getMatchInfo(
@@ -568,16 +728,21 @@ contract GwentArena is ERC1155Holder, AutomationCompatibleInterface {
             uint256 stake,
             uint256 enterTime,
             bool isMatched,
-            uint256 deckLength
+            uint256 deckLength,
+            uint256 latestMatchId
         )
     {
         ArenaEntry storage entry = playerEntries[player];
+        uint256 mId = entry.matchIds.length > 0
+            ? entry.matchIds[entry.matchIds.length - 1]
+            : 0;
         return (
             entry.faction,
             entry.stakeAmount,
             entry.enterTime,
             entry.isMatched,
-            entry.cardIds.length
+            entry.cardIds.length,
+            mId
         );
     }
 
