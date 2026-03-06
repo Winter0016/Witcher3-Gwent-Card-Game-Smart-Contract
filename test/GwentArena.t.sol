@@ -4,8 +4,11 @@ pragma solidity ^0.8.24;
 import {Test, console} from "forge-std/Test.sol";
 import {GwentArena} from "../src/GwentArena.sol";
 import {GwentCardToken} from "../src/GwentCardToken.sol";
+import {
+    ERC1155Holder
+} from "openzeppelin-contracts/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 
-contract GwentArenaTest is Test {
+contract GwentArenaTest is Test, ERC1155Holder {
     GwentArena public arena;
     GwentCardToken public token;
 
@@ -95,7 +98,8 @@ contract GwentArenaTest is Test {
             ,
             uint256 enterTime,
             bool isMatched,
-            uint256 deckLength
+            uint256 deckLength,
+            uint256 latestMatchId
         ) = arena.getPlayerEntry(player1);
 
         assertEq(uint256(faction), uint256(GwentArena.Faction.Northern));
@@ -230,7 +234,39 @@ contract GwentArenaTest is Test {
 
     // Skipped - commit/reveal hash matching issues
     function testClaimRewards_AfterWinning() public {
-        vm.skip(true);
+        uint256 matchId = _createFullMatch();
+        vm.prank(player1);
+        arena.revealPlays(
+            matchId,
+            _createDeck(1, 5),
+            _createAmounts(5),
+            _createDeck(6, 5),
+            _createAmounts(5),
+            _createDeck(11, 2),
+            _createAmounts(2),
+            111
+        );
+
+        vm.prank(player2);
+        arena.revealPlays(
+            matchId,
+            _createDeck(2, 5),
+            _createAmounts(5),
+            _createDeck(7, 5),
+            _createAmounts(5),
+            new uint256[](0),
+            new uint256[](0),
+            222
+        );
+
+        (bool upkeepNeeded, bytes memory performData) = arena.checkUpkeep("");
+        require(upkeepNeeded, "Resolution upkeep needed");
+        arena.performUpkeep(performData);
+        (, , , , , uint256 latestMatchId) = arena.getPlayerEntry(player1);
+        uint256 balanceBefore = token.balanceOf(player1, 0);
+        vm.prank(player1);
+        arena.claimRewards(latestMatchId);
+        assertGt(token.balanceOf(player1, 0), balanceBefore);
     }
 
     // Skipped - commit/reveal hash matching issues
@@ -245,8 +281,11 @@ contract GwentArenaTest is Test {
         arena.revealPlays(
             matchId,
             _createDeck(1, 5),
+            _createAmounts(5),
             _createDeck(6, 5),
-            new uint256[](0),
+            _createAmounts(5),
+            _createDeck(11, 2),
+            _createAmounts(2),
             111
         );
 
@@ -254,7 +293,10 @@ contract GwentArenaTest is Test {
         arena.revealPlays(
             matchId,
             _createDeck(2, 5),
+            _createAmounts(5),
             _createDeck(7, 5),
+            _createAmounts(5),
+            new uint256[](0),
             new uint256[](0),
             222
         );
@@ -291,8 +333,11 @@ contract GwentArenaTest is Test {
         arena.revealPlays(
             matchId,
             _createDeck(1, 5),
+            _createAmounts(5),
             _createDeck(6, 5),
-            new uint256[](0),
+            _createAmounts(5),
+            _createDeck(11, 2),
+            _createAmounts(2),
             111
         );
 
@@ -300,7 +345,10 @@ contract GwentArenaTest is Test {
         arena.revealPlays(
             matchId,
             _createDeck(2, 5),
+            _createAmounts(5),
             _createDeck(7, 5),
+            _createAmounts(5),
+            new uint256[](0),
             new uint256[](0),
             222
         );
@@ -474,9 +522,9 @@ contract GwentArenaTest is Test {
             _createAmounts(deck3.length)
         );
 
-        (, , , bool isMatched3, ) = arena.getPlayerEntry(address(player3New));
-        (, , , bool isMatched1, ) = arena.getPlayerEntry(address(player1));
-        (, , , bool isMatched2, ) = arena.getPlayerEntry(address(player2));
+        (, , , bool isMatched3, , ) = arena.getPlayerEntry(address(player3New));
+        (, , , bool isMatched1, , ) = arena.getPlayerEntry(address(player1));
+        (, , , bool isMatched2, , ) = arena.getPlayerEntry(address(player2));
 
         assertTrue(isMatched1);
         assertTrue(isMatched2);
@@ -624,16 +672,16 @@ contract GwentArenaTest is Test {
         matchId = 0;
 
         bytes32 p1Hash1 = keccak256(
-            abi.encode(_createDeck(1, 5), uint256(111))
+            abi.encode(_createDeck(1, 5), _createAmounts(5), uint256(111))
         );
         bytes32 p1Hash2 = keccak256(
-            abi.encode(_createDeck(6, 5), uint256(111))
+            abi.encode(_createDeck(6, 5), _createAmounts(5), uint256(111))
         );
         bytes32 p2Hash1 = keccak256(
-            abi.encode(_createDeck(2, 5), uint256(222))
+            abi.encode(_createDeck(2, 5), _createAmounts(5), uint256(222))
         );
         bytes32 p2Hash2 = keccak256(
-            abi.encode(_createDeck(7, 5), uint256(222))
+            abi.encode(_createDeck(7, 5), _createAmounts(5), uint256(222))
         );
 
         vm.prank(player1);
@@ -644,7 +692,7 @@ contract GwentArenaTest is Test {
     }
 
     function _createFullMatch() internal returns (uint256 matchId) {
-        uint256[] memory deck1 = _createDeck(1, 22); // 1-22
+        uint256[] memory deck1 = _createDeck(1, 24); // 1-22
         uint256[] memory deck2 = _createDeck(2, 22); // 2-23
         _mintCards(player1, deck1);
         _mintCards(player2, deck2);
@@ -673,25 +721,204 @@ contract GwentArenaTest is Test {
 
         // Equal commits for both: 5 cards each round
         bytes32 p1Hash1 = keccak256(
-            abi.encode(_createDeck(1, 5), uint256(111))
+            abi.encode(_createDeck(1, 5), _createAmounts(5), uint256(111))
         );
         bytes32 p1Hash2 = keccak256(
-            abi.encode(_createDeck(6, 5), uint256(111))
+            abi.encode(_createDeck(6, 5), _createAmounts(5), uint256(111))
         );
-        bytes32 p1Hash3 = keccak256(abi.encode(new uint256[](0), uint256(111)));
+        bytes32 p1Hash3 = keccak256(
+            abi.encode(_createDeck(11, 2), _createAmounts(2), uint256(111))
+        );
 
         bytes32 p2Hash1 = keccak256(
-            abi.encode(_createDeck(2, 5), uint256(222))
+            abi.encode(_createDeck(2, 5), _createAmounts(5), uint256(222))
         );
         bytes32 p2Hash2 = keccak256(
-            abi.encode(_createDeck(7, 5), uint256(222))
+            abi.encode(_createDeck(7, 5), _createAmounts(5), uint256(222))
         );
-        bytes32 p2Hash3 = keccak256(abi.encode(new uint256[](0), uint256(222)));
+        bytes32 p2Hash3 = keccak256(
+            abi.encode(new uint256[](0), new uint256[](0), uint256(222))
+        );
 
         vm.prank(player1);
         arena.commitPlays(matchId, p1Hash1, p1Hash2, p1Hash3);
 
         vm.prank(player2);
         arena.commitPlays(matchId, p2Hash1, p2Hash2, p2Hash3);
+    }
+
+    function testReveal_InvalidDeck_SlashesPlayer() public {
+        uint256[] memory deck1 = _createDeck(1, 24);
+        uint256[] memory deck2 = _createDeck(2, 22);
+        _mintCards(player1, deck1);
+        _mintCards(player2, deck2);
+        _approveCards(player1, deck1);
+        _approveCards(player2, deck2);
+
+        vm.prank(player1);
+        arena.enterArena(
+            GwentArena.Faction.Northern,
+            deck1,
+            _createAmounts(deck1.length)
+        );
+        vm.prank(player2);
+        arena.enterArena(
+            GwentArena.Faction.Northern,
+            deck2,
+            _createAmounts(deck2.length)
+        );
+
+        (bool upkeepNeeded, bytes memory performData) = arena.checkUpkeep("");
+        arena.performUpkeep(performData);
+        uint256 matchId = 0;
+
+        // Player 1 will reveal 999 (not in deck) in Round 1
+        uint256[] memory cheatDeck = _createDeck(1, 5);
+        cheatDeck[0] = 999;
+
+        bytes32 p1H1 = keccak256(
+            abi.encode(cheatDeck, _createAmounts(5), uint256(111))
+        );
+        bytes32 p1H2 = keccak256(
+            abi.encode(_createDeck(6, 5), _createAmounts(5), uint256(111))
+        );
+        bytes32 p1H3 = keccak256(
+            abi.encode(_createDeck(11, 2), _createAmounts(2), uint256(111))
+        );
+
+        bytes32 p2H1 = keccak256(
+            abi.encode(_createDeck(2, 5), _createAmounts(5), uint256(222))
+        );
+        bytes32 p2H2 = keccak256(
+            abi.encode(_createDeck(7, 5), _createAmounts(5), uint256(222))
+        );
+        bytes32 p2H3 = keccak256(
+            abi.encode(_createDeck(12, 2), _createAmounts(2), uint256(222))
+        );
+
+        vm.prank(player1);
+        arena.commitPlays(matchId, p1H1, p1H2, p1H3);
+        vm.prank(player2);
+        arena.commitPlays(matchId, p2H1, p2H2, p2H3);
+
+        vm.prank(player1);
+        arena.revealPlays(
+            matchId,
+            cheatDeck,
+            _createAmounts(5),
+            _createDeck(6, 5),
+            _createAmounts(5),
+            _createDeck(11, 2),
+            _createAmounts(2),
+            111
+        );
+        vm.prank(player2);
+        arena.revealPlays(
+            matchId,
+            _createDeck(2, 5),
+            _createAmounts(5),
+            _createDeck(7, 5),
+            _createAmounts(5),
+            _createDeck(12, 2),
+            _createAmounts(2),
+            222
+        );
+
+        (upkeepNeeded, performData) = arena.checkUpkeep("");
+        arena.performUpkeep(performData);
+
+        GwentArena.MatchInfo memory info = arena.getMatchInfo(matchId);
+        assertEq(
+            uint256(info.result),
+            uint256(GwentArena.MatchResult.Player2Wins)
+        );
+    }
+
+    function testReveal_BothCheat_SystemGetsPool() public {
+        uint256[] memory deck1 = _createDeck(1, 24);
+        uint256[] memory deck2 = _createDeck(2, 22);
+        _mintCards(player1, deck1);
+        _mintCards(player2, deck2);
+        _approveCards(player1, deck1);
+        _approveCards(player2, deck2);
+
+        vm.prank(player1);
+        arena.enterArena(
+            GwentArena.Faction.Northern,
+            deck1,
+            _createAmounts(deck1.length)
+        );
+        vm.prank(player2);
+        arena.enterArena(
+            GwentArena.Faction.Northern,
+            deck2,
+            _createAmounts(deck2.length)
+        );
+
+        (bool upkeepNeeded, bytes memory performData) = arena.checkUpkeep("");
+        arena.performUpkeep(performData);
+        uint256 matchId = 0;
+
+        // Player 1: Too few cards in Round 1
+        uint256[] memory tooFewCards = _createDeck(1, 1);
+        bytes32 p1H1 = keccak256(
+            abi.encode(tooFewCards, _createAmounts(1), uint256(111))
+        );
+        bytes32 p1H2 = keccak256(
+            abi.encode(_createDeck(6, 5), _createAmounts(5), uint256(111))
+        );
+        bytes32 p1H3 = keccak256(
+            abi.encode(_createDeck(11, 2), _createAmounts(2), uint256(111))
+        );
+
+        // Player 2: Wrong cards in Round 1
+        uint256[] memory wrongCards = _createDeck(2, 5);
+        wrongCards[0] = 999;
+        bytes32 p2H1 = keccak256(
+            abi.encode(wrongCards, _createAmounts(5), uint256(222))
+        );
+        bytes32 p2H2 = keccak256(
+            abi.encode(_createDeck(7, 5), _createAmounts(5), uint256(222))
+        );
+        bytes32 p2H3 = keccak256(
+            abi.encode(_createDeck(12, 2), _createAmounts(2), uint256(222))
+        );
+
+        vm.prank(player1);
+        arena.commitPlays(matchId, p1H1, p1H2, p1H3);
+        vm.prank(player2);
+        arena.commitPlays(matchId, p2H1, p2H2, p2H3);
+
+        vm.prank(player1);
+        arena.revealPlays(
+            matchId,
+            tooFewCards,
+            _createAmounts(1),
+            _createDeck(6, 5),
+            _createAmounts(5),
+            _createDeck(11, 2),
+            _createAmounts(2),
+            111
+        );
+        vm.prank(player2);
+        arena.revealPlays(
+            matchId,
+            wrongCards,
+            _createAmounts(5),
+            _createDeck(7, 5),
+            _createAmounts(5),
+            _createDeck(12, 2),
+            _createAmounts(2),
+            222
+        );
+
+        uint256 systemBalanceBefore = token.balanceOf(owner, 0);
+
+        (upkeepNeeded, performData) = arena.checkUpkeep("");
+        arena.performUpkeep(performData);
+
+        uint256 systemBalanceAfter = token.balanceOf(owner, 0);
+        assertGt(systemBalanceAfter, systemBalanceBefore);
+        assertEq(systemBalanceAfter - systemBalanceBefore, 98 ether);
     }
 }
