@@ -54,7 +54,7 @@ library CardRegistryPure {
     // =========================
     // CARD REGISTRY (PURE)
     // =========================
-    function getCard(uint16 id) external pure returns (Card memory) {
+    function getCard(uint16 id) public pure returns (Card memory) {
         // 1. Split the deck in half immediately (Gas optimization trick)
         if (id <= 77) {
             // -------- NORTHERN REALMS (1 - 25) --------
@@ -1642,51 +1642,34 @@ library CardRegistryPure {
     // =========================
     function isDeckValidForFaction(
         Faction faction,
-        uint256[] calldata cardIds
-    ) external pure returns (bool) {
-        uint16 minId;
-        uint16 maxId;
-
-        // 1. Set the strict faction boundaries
-        if (faction == Faction.Northern) {
-            minId = 1;
-            maxId = 25;
-        } else if (faction == Faction.Scoiatael) {
-            minId = 26;
-            maxId = 48;
-        } else if (faction == Faction.Nilfgaard) {
-            minId = 49;
-            maxId = 77;
-        } else if (faction == Faction.Monster) {
-            minId = 78;
-            maxId = 112;
-        } else if (faction == Faction.Skellige) {
-            minId = 113;
-            maxId = 135;
-        } else {
-            return false; // Neutral is not a playable base faction
-        }
-
-        // 2. Loop through the deck
+        uint256[] calldata cardIds,
+        uint256[] calldata cardAmounts
+    ) public pure returns (bool) {
         uint256 length = cardIds.length;
+        uint256 specialCount = 0;
+
         for (uint256 i = 0; i < length; ) {
-            uint256 id = cardIds[i];
+            uint16 id = uint16(cardIds[i]);
+            Card memory card = getCard(id);
 
-            // Valid if it's in the faction range OR if it's a Neutral/Special card (136-144)
-            bool isFactionCard = (id >= minId && id <= maxId);
-            bool isNeutralCard = (id >= 136 && id <= 144);
-
-            if (!isFactionCard && !isNeutralCard) {
-                return false; // Instantly fail if an intruder card is found
+            // 1. Check Faction alignment
+            // Card must belong to the chosen faction OR be Neutral
+            if (card.faction != faction && card.faction != Faction.Neutral) {
+                return false;
             }
 
-            // Gas optimization for the loop counter
+            // 2. Count Special/Weather cards (Range 136-144)
+            if (id >= 136 && id <= 144) {
+                specialCount += cardAmounts[i];
+            }
+
             unchecked {
                 ++i;
             }
         }
 
-        return true; // All cards passed the check
+        // 3. Enforce max 3 special cards limit
+        return specialCount <= 3;
     }
 
     function getMusterGroup(uint16 id) external pure returns (uint8) {

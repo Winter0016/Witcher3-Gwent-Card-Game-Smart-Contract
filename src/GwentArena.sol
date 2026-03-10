@@ -208,7 +208,8 @@ contract GwentArena is ERC1155Holder, AutomationCompatibleInterface {
         require(
             CardRegistryPure.isDeckValidForFaction(
                 CardRegistryPure.Faction(uint8(faction)),
-                cardIds
+                cardIds,
+                cardAmounts
             ),
             "Invalid deck for faction"
         );
@@ -431,7 +432,6 @@ contract GwentArena is ERC1155Holder, AutomationCompatibleInterface {
             match_.player2R3Amounts
         );
 
-        // Rule: Min 5 cards in R1 and R2
         if (
             _calculateScore(match_.player1R1Amounts) < MIN_ROUND_CARDS ||
             _calculateScore(match_.player1R2Amounts) < MIN_ROUND_CARDS
@@ -519,16 +519,19 @@ contract GwentArena is ERC1155Holder, AutomationCompatibleInterface {
 
         // Fill revealed counts using amounts
         for (uint256 i = 0; i < r1Ids.length; i++) {
-            if (r1Ids[i] > 144) return false;
-            revealedCounts[r1Ids[i]] += r1Amounts[i];
+            uint256 cleanId = r1Ids[i] & 0xFF; // Row Encoding: Only check base ID
+            if (cleanId == 0 || cleanId > 144) return false;
+            revealedCounts[cleanId] += r1Amounts[i];
         }
         for (uint256 i = 0; i < r2Ids.length; i++) {
-            if (r2Ids[i] > 144) return false;
-            revealedCounts[r2Ids[i]] += r2Amounts[i];
+            uint256 cleanId = r2Ids[i] & 0xFF;
+            if (cleanId == 0 || cleanId > 144) return false;
+            revealedCounts[cleanId] += r2Amounts[i];
         }
         for (uint256 i = 0; i < r3Ids.length; i++) {
-            if (r3Ids[i] > 144) return false;
-            revealedCounts[r3Ids[i]] += r3Amounts[i];
+            uint256 cleanId = r3Ids[i] & 0xFF;
+            if (cleanId == 0 || cleanId > 144) return false;
+            revealedCounts[cleanId] += r3Amounts[i];
         }
 
         // Verify against original entry
@@ -542,12 +545,18 @@ contract GwentArena is ERC1155Holder, AutomationCompatibleInterface {
         }
 
         // Ensure no cards were revealed that WEREN'T in the original deck at all
-        for (uint256 i = 0; i < r1Ids.length; i++)
-            if (revealedCounts[r1Ids[i]] > 0) return false;
-        for (uint256 i = 0; i < r2Ids.length; i++)
-            if (revealedCounts[r2Ids[i]] > 0) return false;
-        for (uint256 i = 0; i < r3Ids.length; i++)
-            if (revealedCounts[r3Ids[i]] > 0) return false;
+        for (uint256 i = 0; i < r1Ids.length; i++) {
+            uint256 cleanId = r1Ids[i] & 0xFF;
+            if (revealedCounts[cleanId] > 0) return false;
+        }
+        for (uint256 i = 0; i < r2Ids.length; i++) {
+            uint256 cleanId = r2Ids[i] & 0xFF;
+            if (revealedCounts[cleanId] > 0) return false;
+        }
+        for (uint256 i = 0; i < r3Ids.length; i++) {
+            uint256 cleanId = r3Ids[i] & 0xFF;
+            if (revealedCounts[cleanId] > 0) return false;
+        }
 
         return true;
     }
@@ -560,6 +569,19 @@ contract GwentArena is ERC1155Holder, AutomationCompatibleInterface {
             total += amounts[i];
         }
         return total;
+    }
+
+    /// @notice Helper to calculate row-encoded IDs for flexible placement cards (Specials/Agile).
+    /// @param cardId The base ID of the card (1-144).
+    /// @param targetRow The desired row index (0=Close Combat, 1=Ranged, 2=Siege).
+    /// @return The encoded ID to be used in revealPlays.
+    function encodeCardRow(
+        uint16 cardId,
+        uint8 targetRow
+    ) public pure returns (uint256) {
+        require(cardId <= 144, "Invalid cardId");
+        require(targetRow <= 2, "Invalid targetRow");
+        return uint256(cardId) + (uint256(targetRow) << 8);
     }
 
     function timeoutCommit(uint256 matchId) external {

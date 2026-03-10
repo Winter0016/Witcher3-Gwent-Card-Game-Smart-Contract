@@ -170,8 +170,7 @@ contract GwentArenaTest is Test, ERC1155Holder {
         }
         // Don't mint - the revert happens before ownership check
 
-        vm.prank(player1);
-        vm.expectRevert("Invalid deck for faction");
+        vm.expectRevert("Invalid card id");
         arena.enterArena(
             GwentArena.Faction.Northern,
             deck,
@@ -181,16 +180,80 @@ contract GwentArenaTest is Test, ERC1155Holder {
 
     function testEnterArena_InvalidCardId_Above144_Reverts() public {
         uint256[] memory deck = _createDeck(145, 22);
-        // We shouldn't use _mintCards or _approveCards if we expect it to fail early on Invalid ID, but because it's higher than 144 it fails there.
-        // Wait, the new logic calls `CardRegistryPure.isDeckValidForFaction` before verifying ownership.
-        // 145 is technically > 144, but `isDeckValidForFaction` reverts only for wrong faction, wait, it returns false.
-        // And then require(isValid, "Invalid deck for faction") triggers first.
-        // So the revert message should be "Invalid deck for faction".
+        vm.prank(player1);
+        vm.expectRevert(); // CardRegistryPure.getCard(145) will revert
+        arena.enterArena(
+            GwentArena.Faction.Northern,
+            deck,
+            _createAmounts(deck.length)
+        );
+    }
+
+    function testEnterArena_MoreThanThreeSpecials_Reverts() public {
+        uint256[] memory deck = new uint256[](22);
+        uint256[] memory amounts = new uint256[](22);
+        // 4 Special cards (IDs 137, 138, 139, 140)
+        for (uint256 i = 0; i < 4; i++) {
+            deck[i] = 137 + i;
+            amounts[i] = 1;
+        }
+        // Fill the rest with Northern cards
+        for (uint256 i = 4; i < 22; i++) {
+            deck[i] = i - 3; // IDs 1, 2, 3...
+            amounts[i] = 1;
+        }
+
+        _mintCards(player1, deck);
+        _approveCards(player1, deck);
+
+        vm.prank(player1);
+        vm.expectRevert("Invalid deck for faction");
+        arena.enterArena(GwentArena.Faction.Northern, deck, amounts);
+    }
+
+    function testEnterArena_ExactlyThreeSpecials_Success() public {
+        uint256[] memory deck = new uint256[](22);
+        uint256[] memory amounts = new uint256[](22);
+        // 3 Special cards
+        for (uint256 i = 0; i < 3; i++) {
+            deck[i] = 137 + i;
+            amounts[i] = 1;
+        }
+        // Fill the rest with Northern cards
+        for (uint256 i = 3; i < 22; i++) {
+            deck[i] = i - 2;
+            amounts[i] = 1;
+        }
+
+        _mintCards(player1, deck);
+        _approveCards(player1, deck);
+
+        vm.prank(player1);
+        arena.enterArena(GwentArena.Faction.Northern, deck, amounts);
+    }
+
+    function testEnterArena_ZeroSpecials_Success() public {
+        uint256[] memory deck = _createDeck(1, 22); // All Northern
+        _mintCards(player1, deck);
+        _approveCards(player1, deck);
+
+        vm.prank(player1);
+        arena.enterArena(
+            GwentArena.Faction.Northern,
+            deck,
+            _createAmounts(deck.length)
+        );
+    }
+
+    function testEnterArena_WrongFaction_Reverts() public {
+        uint256[] memory deck = _createDeck(1, 22); // Northern
+        _mintCards(player1, deck);
+        _approveCards(player1, deck);
 
         vm.prank(player1);
         vm.expectRevert("Invalid deck for faction");
         arena.enterArena(
-            GwentArena.Faction.Northern,
+            GwentArena.Faction.Scoiatael, // Wrong faction
             deck,
             _createAmounts(deck.length)
         );
