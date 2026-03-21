@@ -51,9 +51,11 @@ The following abilities are defined in `CardRegistryPure.Ability`. Descriptions 
 - **Tight_Bond**: If two or more cards with the **same ID** are in the same row, the **total strength** of those specific units is **doubled** (e.g., `(sum of base powers) * 2`). This multiplier is always exactly 2, regardless of whether there are 2, 3, or more cards.
 - **Morale_Boost**: Adds **+1** power to **all** units in the row (excluding itself).
 - **Commander_horn**: Doubles the total power of all non-hero units in its row. Only one Horn modifier is applied per row.
-- **Spy**: Contributes its power to the **opponent's** board score for that row. *On-play effect: Player chooses 2 cards to draw from the deck.*
+- **Spy**: Contributes its power to the **opponent's** board score for that row. *On-play effect: Player chooses 2 additional cards from the leftover deck (`availability` array) to add to the current round.*
 - **Berserker**: If a `Mardroeme` card is present in the same row, this card transforms and uses its `berserker_power` instead of its base power.
 - **Mardroeme**: Triggers the `Berserker` transformation for units in its row.
+- **Scorch**: Disables a specific selection of unit abilities for the entire round for **both** players. The specific ability is chosen by the player who plays the Scorch card (Encoded in Bits 32+).
+- **Decoy**: A **counter-scorch** card. If a unit's ability is disabled by Scorch, having a Decoy in the player's round "unlocks" those abilities for them.
 
 ### Weather Effects
 - **weather_sets_close_1** (Biting Frost): All non-hero `Close_Combat` units have their power set to 1.
@@ -63,15 +65,10 @@ The following abilities are defined in `CardRegistryPure.Ability`. Descriptions 
 - **weather_clears**: Removes all active weather effects.
 
 ### Triggered/Play-time Effects
-- **Decoy**: Acts as a **protector**. Any non-hero unit card placed **next** to a Decoy is protected from the Scorch ability.
 - **Medic**: Only playable in Round 2 and Round 3. Allows player to replay a non-hero unit from the **Graveyard** (cards played in previous rounds).
-- **Scorch**: 
-  - **Global Battlefield** (Both players, all rows): Triggered by the **Scorch (Special Card, ID 139)** and **Clan Dimun Pirate (ID 128)**. Destroys the strongest non-hero unit(s) on the board if the opponent's total strength is 10 or more.
-  - **Specific Row**: Triggered by other **Unit cards with Scorch** (like Schirrú ID 43 or Toad ID 108). These only affect the strongest non-hero unit(s) in the row they target (the row equivalent to where they are played).
-  - *Note: Protected units (next to Decoy) or Heroes are always ignored by Scorch.*
-- **Muster**: Instantly plays all cards with the same group name from deck or hand.
-- **Summon**: Calls specific cards to the board (e.g., Cerys summoning Shield Maidens).
-- **Transform_After_Death**: Triggers a replacement card or effect when the unit is removed from the board (e.g., Kambi/Hemdall).
+- **Muster**: Instantly plays all cards with the same group name from the `availability` array (remaining deck).
+- **Summon**: Calls specific cards from the `availability` array to the board.
+- **Transform_After_Death**: Triggers a replacement card or effect when the unit is removed.
 
 ## 5. Proposed Library Interface
 
@@ -132,14 +129,20 @@ This approach ensures "Priority" cards effectively override other logic, minimiz
 
 Since `Commander's Horn`, `Mardroeme`, and `Agile` units can be placed in different rows, but the contract only receives `ids` and `amounts`, we use **Bit-Packing** to encode the user's row choice directly into the ID.
 
-### Encoding Specification
-The 256-bit `id` will be interpreted as follows:
-- **Bits 0-7 (1-255)**: The actual Card ID (matches `CardRegistryPure`).
-- **Bits 8-9 (Value 0-3)**: The Target Row Index.
-  - `0`: Close Combat
-  - `1`: Ranged
-  - `2`: Siege
-  - `3`: Global/Reserved
+### Encoding Specification (16-Bit Slots)
+To make bit-packing human-readable and scalable, we use 16-bit offsets:
+- **Bits 0-15 (Shift 0)**: Card ID (1-144).
+- **Bits 16-31 (Shift 16)**: Target Row (0=Close, 1=Ranged, 2=Siege).
+- **Bits 32-47 (Shift 32)**: Scorch Ability Selection (0-7).
+- **Bits 48-63 (Shift 48)**: Spy Card 1 ID (from deck).
+- **Bits 64-79 (Shift 64)**: Spy Card 2 ID (from deck).
+- **Bits 80-95 (Shift 80)**: Card Amount.
+
+### Scorch Ability Selection (Bits 32-47)
+When **Scorch (ID 139)** is played, bits 32-47 encode the ability to disable:
+- `0`: Berserker
+- `1`: Transform_After_Death
+- ... (and so on)
 
 ### Usage Examples
 - **Mardroeme (ID 136)** on **Ranged (Row 1)**: `136 + (1 << 8) = 136 + 256 = 392`.
@@ -148,9 +151,24 @@ The 256-bit `id` will be interpreted as follows:
 
 ### Data Unpacking Logic
 ```solidity
-uint16 revealedId = uint16(ids[i]);
-uint16 cardId = revealedId & 0xFF;        // Gets ID (1-255)
-uint16 targetRow = (revealedId >> 8) & 0x03; // Gets Row (0-2)
+uint256 packed = packedArray[i];
+uint16 cardId = uint16(packed & 0xFFFF);
+uint8 targetRow = uint8((packed >> 16) & 0x03);
+uint8 scorchSelection = uint8((packed >> 32) & 0xFF);
+/* 
+        Berserker,
+        Transform_After_Death,
+        Medic,
+        Morale_Boost,
+        Muster,
+        Summon,
+        Spy,
+        Tight_Bond,
+
+*/
+uint16 spy1 = uint16((packed >> 48) & 0xFFFF);
+uint16 spy2 = uint16((packed >> 64) & 0xFFFF);
+uint16 amount = uint16((packed >> 80) & 0xFFFF);
 ```
 
 ### Validation & Safety (Cheating Prevention)
@@ -162,11 +180,11 @@ To prevent players from "forcing" a unit into an illegal row (e.g., putting a Cl
     - **Agile Units** (Any unit with `UnitType.Agile`).
 3.  **Invalid Row Handling**: If a flexible card encodes a row index `> 2` (e.g., value 3), it will default to the **Close Combat** row to prevent logic errors.
 
-### Updated Registry Verification (`_verifyDeckIntegrity`)
-The `GwentArena.sol` check for card ownership will be updated to ignore the encoding bits during the "count" phase:
+### Validation & Safety (Cheating Prevention)
+During the `GwentArena._verifyDeckIntegrity` phase, the packing is stripped to verify ownership:
 ```solidity
-uint256 cleanId = ids[i] & 0xFF; // Strip the row bits (keeping only ID 1-255)
-require(revealedCounts[cleanId] <= ownedAmounts[cleanId], "Cheater");
+uint256 cleanId = packed & 0xFFFF;
+require(availability[cleanId] >= amount, "Cheater");
 ```
 
 This keeps the system 100% secure without adding extra loops or expensive `if` checks.
