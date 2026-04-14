@@ -4,7 +4,8 @@ pragma solidity ^0.8.24;
 import {IGwentCardToken} from "../interfaces/IGwentCardToken.sol";
 import {CardRegistryPure} from "./CardRegistryPure.sol";
 import {
-    ERC1155HolderUpgradeable
+    ERC1155HolderUpgradeable,
+    ERC1155ReceiverUpgradeable
 } from "openzeppelin-contracts-upgradeable/contracts/token/ERC1155/utils/ERC1155HolderUpgradeable.sol";
 import {
     AutomationCompatibleInterface
@@ -22,7 +23,8 @@ import {
 
 import {
     ReentrancyGuardUpgradeable
-} from "openzeppelin-contracts-upgradeable/contracts/utils/ReentrancyGuardUpgradeable.sol";
+} from "openzeppelin-contracts-upgradeable/contracts/security/ReentrancyGuardUpgradeable.sol";
+
 import {
     Initializable
 } from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
@@ -1150,7 +1152,7 @@ contract GwentArena is
     )
         public
         view
-        override(ERC1155HolderUpgradeable, AccessControlUpgradeable)
+        override(ERC1155ReceiverUpgradeable, AccessControlUpgradeable)
         returns (bool)
     {
         return super.supportsInterface(interfaceId);
