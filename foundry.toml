@@ -15,3 +15,8 @@ sepolia = {
 }
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
+
+[invariant]
+runs = 500
+depth = 500
+fail_on_revert = true
