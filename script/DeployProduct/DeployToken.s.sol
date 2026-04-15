@@ -7,9 +7,7 @@ import {HelperConfig} from "../Helperconfig.s.sol";
 
 contract DeployToken is Script {
     function run() external returns (GwentCardToken) {
-        HelperConfig helperConfig = new HelperConfig();
-        HelperConfig.NetworkConfig memory config = helperConfig.getConfig();
-        vm.startBroadcast(config.account);
+        vm.startBroadcast();
         GwentCardToken token = new GwentCardToken();
         vm.stopBroadcast();
 

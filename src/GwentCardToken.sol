@@ -34,6 +34,7 @@ contract GwentCardToken is ERC1155, AccessControl, ReentrancyGuard, Votes {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 public constant BURNER_ROLE = keccak256("BURNER_ROLE");
     bytes32 public constant LOCKER_ROLE = keccak256("LOCKER_ROLE");
+    bytes32 public constant OWNER_ROLE = keccak256("OWNER_ROLE");
 
     mapping(address => bool) public isTransferLocked;
 
@@ -61,22 +62,19 @@ contract GwentCardToken is ERC1155, AccessControl, ReentrancyGuard, Votes {
     constructor() ERC1155("") EIP712("GwentCardToken", "1") {
         _grantRole(MINTER_ROLE, msg.sender);
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(OWNER_ROLE, msg.sender);
         _grantRole(BURNER_ROLE, msg.sender);
         _grantRole(LOCKER_ROLE, msg.sender);
         treasuryWallet = msg.sender;
     }
 
-    function setWethToken(
-        address _wethToken
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setWethToken(address _wethToken) external onlyRole(OWNER_ROLE) {
         require(_wethToken != address(0), "Invalid address");
         wethToken = IERC20(_wethToken);
         emit WethTokenSet(_wethToken);
     }
 
-    function setTreasuryWallet(
-        address wallet
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setTreasuryWallet(address wallet) external onlyRole(OWNER_ROLE) {
         require(wallet != address(0), "Invalid address");
         treasuryWallet = wallet;
     }
@@ -168,14 +166,12 @@ contract GwentCardToken is ERC1155, AccessControl, ReentrancyGuard, Votes {
         emit TokensRedeemed(msg.sender, tokenAmount, netEth, true);
     }
 
-    function setRedemptionFeeBps(
-        uint256 _bps
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setRedemptionFeeBps(uint256 _bps) external onlyRole(OWNER_ROLE) {
         emit RedemptionFeeUpdated(redemptionFeeBps, _bps);
         redemptionFeeBps = _bps;
     }
 
-    function withdrawReserves() external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function withdrawReserves() external onlyRole(OWNER_ROLE) {
         uint256 ethBalance = address(this).balance;
         if (ethBalance > 0) {
             (bool success, ) = payable(treasuryWallet).call{value: ethBalance}(
@@ -195,21 +191,15 @@ contract GwentCardToken is ERC1155, AccessControl, ReentrancyGuard, Votes {
 
     receive() external payable {}
 
-    function grantBurnerRole(
-        address account
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function grantBurnerRole(address account) external onlyRole(OWNER_ROLE) {
         _grantRole(BURNER_ROLE, account);
     }
 
-    function grantMinterRole(
-        address account
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function grantMinterRole(address account) external onlyRole(OWNER_ROLE) {
         _grantRole(MINTER_ROLE, account);
     }
 
-    function grantLockerRole(
-        address account
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function grantLockerRole(address account) external onlyRole(OWNER_ROLE) {
         _grantRole(LOCKER_ROLE, account);
     }
 
@@ -226,7 +216,7 @@ contract GwentCardToken is ERC1155, AccessControl, ReentrancyGuard, Votes {
     function airdropCurrency(
         address[] calldata recipients,
         uint256 amount
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    ) external onlyRole(OWNER_ROLE) {
         require(recipients.length <= MAX_AIRDROP_BATCH, "Batch too large");
         for (uint256 i = 0; i < recipients.length; i++) {
             _mint(recipients[i], GAME_CURRENCY_ID, amount, "");
@@ -236,7 +226,7 @@ contract GwentCardToken is ERC1155, AccessControl, ReentrancyGuard, Votes {
     function airdropCurrencySingle(
         address recipient,
         uint256 amount
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    ) external onlyRole(OWNER_ROLE) {
         _mint(recipient, GAME_CURRENCY_ID, amount, "");
     }
 

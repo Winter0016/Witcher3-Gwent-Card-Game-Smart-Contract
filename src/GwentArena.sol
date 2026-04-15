@@ -69,6 +69,29 @@ contract GwentArena is
 
     bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
 
+    bytes32 public constant OWNER_ROLE = keccak256("OWNER_ROLE");
+
+    // Custom Errors for Size Reduction
+    error GwentArena__InvalidAddress();
+    error GwentArena__ActiveSessionExists();
+    error GwentArena__IdsAmountsMismatch();
+    error GwentArena__InvalidTotalCards();
+    error GwentArena__InsufficientCurrency();
+    error GwentArena__InvalidMatchState();
+    error GwentArena__NotYourTurn();
+    error GwentArena__DeadlinePassed();
+    error GwentArena__InvalidReveal();
+    error GwentArena__AlreadyInitialized();
+    error GwentArena__Unauthorized(address caller);
+    error GwentArena__NoFeesToClaim();
+    error GwentArena__InvalidDeck();
+    error GwentArena__AlreadyInArena();
+    error GwentArena__HashMismatch();
+    error GwentArena__InvalidCardId();
+    error GwentArena__InvalidTargetRow();
+    error GwentArena__InvalidPhase();
+    error GwentArena__DeadlineNotPassed();
+
     event PlayerEntered(
         address indexed player,
         Faction faction,
@@ -112,6 +135,7 @@ contract GwentArena is
 
         _grantRole(DEFAULT_ADMIN_ROLE, initialOwner);
         _grantRole(UPGRADER_ROLE, initialOwner);
+        _grantRole(OWNER_ROLE, initialOwner);
 
         cardToken = IGwentCardToken(_cardToken);
         treasury = initialOwner;
@@ -121,44 +145,42 @@ contract GwentArena is
         return 1;
     }
 
-    function setEntryFee(uint256 _fee) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setEntryFee(uint256 _fee) external virtual onlyRole(DEFAULT_ADMIN_ROLE) {
         entryFee = _fee;
     }
 
     function setHouseFeePercent(
         uint256 _percent
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    ) external virtual onlyRole(OWNER_ROLE) {
         houseFeePercent = _percent;
     }
 
     function setCallerRewardPercent(
         uint256 _percent
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    ) external virtual onlyRole(DEFAULT_ADMIN_ROLE) {
         callerRewardPercent = _percent;
     }
 
     function setWaitRewardPerBlock(
         uint256 _reward
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    ) external virtual onlyRole(DEFAULT_ADMIN_ROLE) {
         waitRewardPerBlock = _reward;
     }
 
     function setCommitTimeout(
         uint256 _timeout
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    ) external virtual onlyRole(DEFAULT_ADMIN_ROLE) {
         commitTimeout = _timeout;
     }
 
     function setRevealTimeout(
         uint256 _timeout
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    ) external virtual onlyRole(DEFAULT_ADMIN_ROLE) {
         revealTimeout = _timeout;
     }
 
-    function setTreasury(
-        address _treasury
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(_treasury != address(0), "Invalid treasury");
+    function setTreasury(address _treasury) external virtual onlyRole(OWNER_ROLE) {
+        if (_treasury == address(0)) revert GwentArena__InvalidAddress();
         treasury = _treasury;
     }
 
@@ -167,7 +189,7 @@ contract GwentArena is
      */
     function getWaitingPlayers(
         uint256 limit
-    ) external view returns (address[] memory) {
+    ) external view virtual returns (address[] memory) {
         uint256 head = waitingHead;
         uint256 total = waitingQueue.length;
         if (head >= total) return new address[](0);
@@ -180,14 +202,14 @@ contract GwentArena is
         return activePlayers;
     }
 
-    function getWaitingCount() external view returns (uint256) {
+    function getWaitingCount() external view virtual returns (uint256) {
         uint256 head = waitingHead;
         uint256 total = waitingQueue.length;
         if (head >= total) return 0;
         return total - head;
     }
 
-    function getWaitingReward(address player) external view returns (uint256) {
+    function getWaitingReward(address player) external view virtual returns (uint256) {
         ArenaEntry storage entry = playerEntries[player];
         if (entry.enterBlock == 0 || entry.isMatched) return 0;
 
@@ -201,33 +223,32 @@ contract GwentArena is
         Faction faction,
         uint256[] calldata cardIds,
         uint256[] calldata cardAmounts
-    ) external nonReentrant {
-        require(
-            playerEntries[msg.sender].enterBlock == 0 &&
-                !playerEntries[msg.sender].isMatched,
-            "Active session exists"
-        );
-        require(
-            cardIds.length == cardAmounts.length,
-            "Ids and amounts mismatch"
-        );
+    ) external virtual nonReentrant {
+        if (playerEntries[msg.sender].enterBlock != 0 || playerEntries[msg.sender].isMatched) {
+            revert GwentArena__ActiveSessionExists();
+        }
+        if (cardIds.length != cardAmounts.length) {
+            revert GwentArena__IdsAmountsMismatch();
+        }
 
-        require(
-            CardRegistryPure.isDeckValidForFaction(
+        if (
+            !CardRegistryPure.isDeckValidForFaction(
                 faction,
                 cardIds,
                 cardAmounts
-            ),
-            "Invalid deck(Deck not belong to faction or invalid amount of special card or invalid card id) "
-        );
+            )
+        ) {
+            revert GwentArena__InvalidDeck();
+        }
 
         // Verify Ownership & Integrity (Consolidated Pass)
         uint256 totalCards = _verifyOwnership(msg.sender, cardIds, cardAmounts);
-        require(
-            totalCards >= MIN_DECK_SIZE && totalCards <= MAX_DECK_SIZE,
-            "Invalid total cards"
-        );
-        require(playerEntries[msg.sender].enterBlock == 0, "Already in arena");
+        if (totalCards < MIN_DECK_SIZE || totalCards > MAX_DECK_SIZE) {
+            revert GwentArena__InvalidTotalCards();
+        }
+        if (playerEntries[msg.sender].enterBlock != 0) {
+            revert GwentArena__AlreadyInArena();
+        }
 
         // Protocol Lock: Prevent transfers during match
         cardToken.setTransferLock(msg.sender, true);
@@ -437,17 +458,11 @@ contract GwentArena is
         bool isPlayer1 = msg.sender == match_.player1;
 
         if (isPlayer1) {
-            require(
-                combinedHash == match_.player1CombinedHash,
-                "Hash mismatch"
-            );
+            if (combinedHash != match_.player1CombinedHash) revert GwentArena__HashMismatch();
             _packRoundData(matchId, true, r1Packed, r2Packed, r3Packed);
             match_.revealed1 = true;
         } else {
-            require(
-                combinedHash == match_.player2CombinedHash,
-                "Hash mismatch"
-            );
+            if (combinedHash != match_.player2CombinedHash) revert GwentArena__HashMismatch();
             _packRoundData(matchId, false, r1Packed, r2Packed, r3Packed);
             match_.revealed2 = true;
         }
@@ -592,7 +607,6 @@ contract GwentArena is
         uint256[3] memory p2Neutrals;
 
         (p1Valid, p1RemainingDeck, p1Neutrals) = _checkPlayerIntegrity(
-            m.player1,
             p1Ids,
             p1Amounts,
             p1r1,
@@ -600,7 +614,6 @@ contract GwentArena is
             p1r3
         );
         (p2Valid, p2RemainingDeck, p2Neutrals) = _checkPlayerIntegrity(
-            m.player2,
             p2Ids,
             p2Amounts,
             p2r1,
@@ -631,7 +644,6 @@ contract GwentArena is
     }
 
     function _checkPlayerIntegrity(
-        address player,
         uint256[] memory originalIds,
         uint256[] memory originalAmounts,
         uint256[] memory r1Packed,
@@ -639,7 +651,7 @@ contract GwentArena is
         uint256[] memory r3Packed
     )
         internal
-        view
+        pure
         returns (
             bool isValid,
             uint256[] memory availability,
@@ -792,8 +804,8 @@ contract GwentArena is
         uint256 spy1_Or_medic,
         uint256 spy2
     ) public pure returns (uint256) {
-        require(cardId <= 144, "Invalid cardId");
-        require(targetRow <= 2, "Invalid targetRow");
+        if (cardId > 144) revert GwentArena__InvalidCardId();
+        if (targetRow > 2) revert GwentArena__InvalidTargetRow();
         return
             uint256(cardId) |
             (uint256(targetRow) << 16) |
@@ -805,8 +817,8 @@ contract GwentArena is
 
     function timeoutCommit(uint256 matchId) external {
         Match storage match_ = matches[matchId];
-        require(match_.phase == Phase.WaitingForCommit, "Not in commit phase");
-        require(block.timestamp > match_.commitDeadline, "Commit still active");
+        if (match_.phase != Phase.WaitingForCommit) revert GwentArena__InvalidPhase();
+        if (block.timestamp <= match_.commitDeadline) revert GwentArena__DeadlineNotPassed();
 
         bool p1Committed = match_.player1CombinedHash != bytes32(0);
         bool p2Committed = match_.player2CombinedHash != bytes32(0);
@@ -893,9 +905,9 @@ contract GwentArena is
         emit RewardsClaimed(msg.sender, reward);
     }
 
-    function claimFees() external onlyRole(DEFAULT_ADMIN_ROLE) nonReentrant {
+    function claimFees() external virtual onlyRole(OWNER_ROLE) nonReentrant {
         uint256 fees = pendingFees;
-        require(fees > 0, "No fees to claim");
+        if (fees == 0) revert GwentArena__NoFeesToClaim();
         pendingFees = 0;
         cardToken.mintGameCurrency(treasury, fees);
     }
@@ -1158,5 +1170,10 @@ contract GwentArena is
         return super.supportsInterface(interfaceId);
     }
 
+    /**
+     * @dev This empty reserved space is put in place to allow future versions to add new
+     * variables without shifting down storage in the inheritance chain.
+     * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
+     */
     uint256[50] private __gap;
 }

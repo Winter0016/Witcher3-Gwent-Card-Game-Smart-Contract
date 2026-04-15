@@ -90,7 +90,9 @@ contract GwentSystem is
         return 1;
     }
 
-    function openNorthenRealmsPack(uint32 amount) external returns (uint256) {
+    function openNorthenRealmsPack(
+        uint32 amount
+    ) external virtual returns (uint256) {
         uint32 finalAmount = _determineAmountAndCharge(amount);
         uint256 requestID = requestcard(6, finalAmount);
         s_packTypes[requestID] = PackType.NorthernRealms;
@@ -105,7 +107,9 @@ contract GwentSystem is
         return requestID;
     }
 
-    function openScoialTaelPack(uint32 amount) external returns (uint256) {
+    function openScoiaTaelPack(
+        uint32 amount
+    ) external virtual returns (uint256) {
         uint32 finalAmount = _determineAmountAndCharge(amount);
         uint256 requestID = requestcard(5, finalAmount);
         s_packTypes[requestID] = PackType.ScoiaTael;
@@ -120,7 +124,9 @@ contract GwentSystem is
         return requestID;
     }
 
-    function openNilfgaardPack(uint32 amount) external returns (uint256) {
+    function openNilfgaardPack(
+        uint32 amount
+    ) external virtual returns (uint256) {
         uint32 finalAmount = _determineAmountAndCharge(amount);
         uint256 requestID = requestcard(3, finalAmount);
         s_packTypes[requestID] = PackType.Nilfgaard;
@@ -135,7 +141,9 @@ contract GwentSystem is
         return requestID;
     }
 
-    function openMonstersPack(uint32 amount) external returns (uint256) {
+    function openMonstersPack(
+        uint32 amount
+    ) external virtual returns (uint256) {
         uint32 finalAmount = _determineAmountAndCharge(amount);
         uint256 requestID = requestcard(5, finalAmount);
         s_packTypes[requestID] = PackType.Monsters;
@@ -150,7 +158,9 @@ contract GwentSystem is
         return requestID;
     }
 
-    function openSkelligePack(uint32 amount) external returns (uint256) {
+    function openSkelligePack(
+        uint32 amount
+    ) external virtual returns (uint256) {
         uint32 finalAmount = _determineAmountAndCharge(amount);
         uint256 requestID = requestcard(4, finalAmount);
         s_packTypes[requestID] = PackType.Skellige;
@@ -167,7 +177,7 @@ contract GwentSystem is
 
     function _determineAmountAndCharge(
         uint32 amount
-    ) internal returns (uint32) {
+    ) internal virtual returns (uint32) {
         if (!s_hasOpenedFirstPack[msg.sender]) {
             s_hasOpenedFirstPack[msg.sender] = true;
             return 4; // Free starter pack worth 4 units
@@ -186,7 +196,7 @@ contract GwentSystem is
     function requestcard(
         uint32 numWordsPerPack,
         uint32 amount
-    ) internal returns (uint256 requestId) {
+    ) internal virtual returns (uint256 requestId) {
         requestId = s_vrfCoordinator.requestRandomWords(
             VRFV2PlusClient.RandomWordsRequest({
                 keyHash: s_gasLane,
@@ -205,7 +215,7 @@ contract GwentSystem is
     function fulfillRandomWords(
         uint256 requestId,
         uint256[] calldata randomWords
-    ) internal override {
+    ) internal virtual override {
         PackType pack = s_packTypes[requestId];
         uint256[] storage packedCards = s_packCards[requestId];
 
@@ -278,7 +288,7 @@ contract GwentSystem is
     function _cardFromRandom(
         PackType pack,
         uint256 randomWord
-    ) internal pure returns (uint256) {
+    ) internal pure virtual returns (uint256) {
         uint256 roll = randomWord % 100;
         uint256 pick = uint256(keccak256(abi.encode(randomWord)));
 
@@ -304,7 +314,7 @@ contract GwentSystem is
     function _northernRealmsCard(
         uint256 roll,
         uint256 pick
-    ) internal pure returns (uint256) {
+    ) internal pure virtual returns (uint256) {
         if (roll < 50) return 1 + (pick % 5);
         if (roll < 80) return 6 + (pick % 11);
         if (roll < 95) return 17 + (pick % 4);
@@ -315,7 +325,7 @@ contract GwentSystem is
     function _sociaTaelCard(
         uint256 roll,
         uint256 pick
-    ) internal pure returns (uint256) {
+    ) internal pure virtual returns (uint256) {
         if (roll < 50) return 26 + (pick % 4);
         if (roll < 80) return 30 + (pick % 7);
         if (roll < 95) return 37 + (pick % 6);
@@ -326,7 +336,7 @@ contract GwentSystem is
     function _nilfgaardCard(
         uint256 roll,
         uint256 pick
-    ) internal pure returns (uint256) {
+    ) internal pure virtual returns (uint256) {
         if (roll < 50) return 49 + (pick % 6);
         if (roll < 80) return 55 + (pick % 11);
         if (roll < 95) return 66 + (pick % 5);
@@ -337,7 +347,7 @@ contract GwentSystem is
     function _monsterCard(
         uint256 roll,
         uint256 pick
-    ) internal pure returns (uint256) {
+    ) internal pure virtual returns (uint256) {
         if (roll < 50) return 78 + (pick % 9);
         if (roll < 80) return 87 + (pick % 14);
         if (roll < 95) return 101 + (pick % 8);
@@ -348,7 +358,7 @@ contract GwentSystem is
     function _skelligeCard(
         uint256 roll,
         uint256 pick
-    ) internal pure returns (uint256) {
+    ) internal pure virtual returns (uint256) {
         if (roll < 50) return 113 + (pick % 4);
         if (roll < 80) return 117 + (pick % 9);
         if (roll < 95) return 126 + (pick % 6);

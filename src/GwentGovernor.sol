@@ -32,9 +32,9 @@ import {
 /**
  * @title GwentGovernor
  * @dev Main governance contract for the Decentralized Gwent Protocol.
- * 
+ *
  * NOTE ON INHERITANCE: Solidity uses "C3 Linearization" (Right-to-Left priority).
- * We place 'GovernorTimelockControl' on the right so it overrides the base 'Governor' 
+ * We place 'GovernorTimelockControl' on the right so it overrides the base 'Governor'
  * logic for specialized Timelock behavior (like the cancellation bridge).
  */
 contract GwentGovernor is
@@ -178,7 +178,7 @@ contract GwentGovernor is
     /**
      * @dev Resolves inheritance ambiguity between Governor and GovernorTimelockControl.
      * Required by the Solidity compiler to satisfy the multiple inheritance "Diamond Problem".
-     * 
+     *
      * EXECUTION ORDER:
      * 1. This function triggers super._cancel.
      * 2. Because of C3 Linearization, it first enters GovernorTimelockControl._cancel.
@@ -254,7 +254,8 @@ contract GwentGovernor is
         // Uses integer math: tally * 100 >= total * percentage
         if (
             totalGuardians > 0 &&
-            (vetoTally[proposalId] * 100) >= (totalGuardians * s_vetoThresholdPercentage)
+            (vetoTally[proposalId] * 100) >=
+            (totalGuardians * s_vetoThresholdPercentage)
         ) {
             _cancel(targets, values, calldatas, descriptionHash);
         }
@@ -265,7 +266,8 @@ contract GwentGovernor is
      * Only callable by the DAO (Timelock).
      */
     function updateVetoThreshold(uint256 newThreshold) external onlyGovernance {
-        if (newThreshold == 0 || newThreshold > 100) revert("Invalid threshold");
+        if (newThreshold == 0 || newThreshold > 100)
+            revert("Invalid threshold");
         uint256 oldThreshold = s_vetoThresholdPercentage;
         s_vetoThresholdPercentage = newThreshold;
         emit VetoThresholdUpdated(oldThreshold, newThreshold);

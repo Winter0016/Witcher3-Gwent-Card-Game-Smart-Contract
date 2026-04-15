@@ -86,6 +86,7 @@ contract DeployGwent is Script {
         token.grantRole(token.MINTER_ROLE(), address(arena));
         token.grantRole(token.LOCKER_ROLE(), address(arena));
         token.grantRole(token.BURNER_ROLE(), address(arena));
+
         vm.stopBroadcast();
 
         // Add consumer - pointing to System Proxy address
