@@ -2,6 +2,9 @@
 pragma solidity ^0.8.24;
 
 import {
+    IVRFCoordinatorV2Plus
+} from "chainlink-brownie-contracts/contracts/src/v0.8/vrf/dev/interfaces/IVRFCoordinatorV2Plus.sol";
+import {
     VRFConsumerBaseV2Plus
 } from "chainlink-brownie-contracts/contracts/src/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
 import {
@@ -32,7 +35,7 @@ contract GwentSystem is
     address private s_cardTokenAddress;
     uint16 private constant REQUEST_CONFIRMATIONS = 3;
 
-    uint256 public constant PACK_PRICE = 100e18; // 100 tokens
+    uint256 public constant PACK_PRICE = 100; // 100 tokens
 
     bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
 
@@ -87,7 +90,13 @@ contract GwentSystem is
     }
 
     function version() external pure virtual returns (uint256) {
-        return 1;
+        return 7;
+    }
+
+    function setVRFCoordinator(
+        address _vrfCoordinator
+    ) external onlyRole(UPGRADER_ROLE) {
+        s_vrfCoordinator = IVRFCoordinatorV2Plus(_vrfCoordinator);
     }
 
     function openNorthenRealmsPack(
@@ -368,8 +377,64 @@ contract GwentSystem is
 
     function InspectCard(
         uint16 id
-    ) external pure returns (CardRegistryPure.Card memory) {
-        return CardRegistryPure.getCard(id);
+    )
+        external
+        pure
+        virtual
+        returns (
+            uint8 power,
+            uint8 berserker_power,
+            string memory ability,
+            string memory unitType,
+            string memory faction
+        )
+    {
+        CardRegistryPure.Card memory card = CardRegistryPure.getCard(id);
+
+        string[6] memory factionNames = [
+            "Northern",
+            "Nilfgaard",
+            "Monster",
+            "Scoiatael",
+            "Skellige",
+            "Neutral"
+        ];
+        faction = factionNames[uint256(card.faction)];
+
+        string[18] memory abilityNames = [
+            "None",
+            "Berserker",
+            "Commander_horn",
+            "Decoy",
+            "Hero",
+            "Medic",
+            "Morale_Boost",
+            "Mardroeme",
+            "Muster",
+            "Summon",
+            "Spy",
+            "Tight_Bond",
+            "Scorch",
+            "Weather Close",
+            "Weather Clears",
+            "Weather Range",
+            "Weather Red. Close",
+            "Weather Siege"
+        ];
+        ability = abilityNames[uint256(card.ability)];
+
+        string[6] memory unitTypeNames = [
+            "Close Combat",
+            "Ranged",
+            "Siege",
+            "Agile",
+            "Weather",
+            "Special"
+        ];
+        unitType = unitTypeNames[uint256(card.unitType)];
+
+        power = card.power;
+        berserker_power = card.berserker_power;
     }
 
     function _authorizeUpgrade(
