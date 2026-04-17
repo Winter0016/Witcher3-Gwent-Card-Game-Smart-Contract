@@ -91,6 +91,12 @@ contract GwentArena is
     error GwentArena__InvalidTargetRow();
     error GwentArena__InvalidPhase();
     error GwentArena__DeadlineNotPassed();
+    error GwentArena__NotPlayer();
+    error GwentArena__InvalidHash();
+    error GwentArena__AlreadyCommitted();
+    error GwentArena__NoRewardsToClaim();
+    error GwentArena__NotInArena();
+    error GwentArena__AlreadyMatched();
 
     event PlayerEntered(
         address indexed player,
@@ -142,10 +148,12 @@ contract GwentArena is
     }
 
     function version() external pure virtual returns (uint256) {
-        return 1;
+        return 2;
     }
 
-    function setEntryFee(uint256 _fee) external virtual onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setEntryFee(
+        uint256 _fee
+    ) external virtual onlyRole(DEFAULT_ADMIN_ROLE) {
         entryFee = _fee;
     }
 
@@ -179,7 +187,9 @@ contract GwentArena is
         revealTimeout = _timeout;
     }
 
-    function setTreasury(address _treasury) external virtual onlyRole(OWNER_ROLE) {
+    function setTreasury(
+        address _treasury
+    ) external virtual onlyRole(OWNER_ROLE) {
         if (_treasury == address(0)) revert GwentArena__InvalidAddress();
         treasury = _treasury;
     }
@@ -209,7 +219,9 @@ contract GwentArena is
         return total - head;
     }
 
-    function getWaitingReward(address player) external view virtual returns (uint256) {
+    function getWaitingReward(
+        address player
+    ) external view virtual returns (uint256) {
         ArenaEntry storage entry = playerEntries[player];
         if (entry.enterBlock == 0 || entry.isMatched) return 0;
 
@@ -224,7 +236,10 @@ contract GwentArena is
         uint256[] calldata cardIds,
         uint256[] calldata cardAmounts
     ) external virtual nonReentrant {
-        if (playerEntries[msg.sender].enterBlock != 0 || playerEntries[msg.sender].isMatched) {
+        if (
+            playerEntries[msg.sender].enterBlock != 0 ||
+            playerEntries[msg.sender].isMatched
+        ) {
             revert GwentArena__ActiveSessionExists();
         }
         if (cardIds.length != cardAmounts.length) {
@@ -394,31 +409,19 @@ contract GwentArena is
 
     function commitPlays(uint256 matchId, bytes32 combinedHash) external {
         Match storage match_ = matches[matchId];
-        require(
-            msg.sender == match_.player1 || msg.sender == match_.player2,
-            "Not player"
-        );
-        require(match_.phase == Phase.WaitingForCommit, "Not in commit phase");
-        require(
-            block.timestamp <= match_.commitDeadline,
-            "Commit timeout passed"
-        );
+        if (msg.sender != match_.player1 && msg.sender != match_.player2) revert GwentArena__NotPlayer();
+        if (match_.phase != Phase.WaitingForCommit) revert GwentArena__InvalidPhase();
+        if (block.timestamp > match_.commitDeadline) revert GwentArena__DeadlinePassed();
 
         bool isPlayer1 = msg.sender == match_.player1;
 
         if (isPlayer1) {
-            require(combinedHash != bytes32(0), "Invalid hash");
-            require(
-                match_.player1CombinedHash == bytes32(0),
-                "Already committed"
-            );
+            if (combinedHash == bytes32(0)) revert GwentArena__InvalidHash();
+            if (match_.player1CombinedHash != bytes32(0)) revert GwentArena__AlreadyCommitted();
             match_.player1CombinedHash = combinedHash;
         } else {
-            require(combinedHash != bytes32(0), "Invalid hash");
-            require(
-                match_.player2CombinedHash == bytes32(0),
-                "Already committed"
-            );
+            if (combinedHash == bytes32(0)) revert GwentArena__InvalidHash();
+            if (match_.player2CombinedHash != bytes32(0)) revert GwentArena__AlreadyCommitted();
             match_.player2CombinedHash = combinedHash;
         }
 
@@ -458,11 +461,13 @@ contract GwentArena is
         bool isPlayer1 = msg.sender == match_.player1;
 
         if (isPlayer1) {
-            if (combinedHash != match_.player1CombinedHash) revert GwentArena__HashMismatch();
+            if (combinedHash != match_.player1CombinedHash)
+                revert GwentArena__HashMismatch();
             _packRoundData(matchId, true, r1Packed, r2Packed, r3Packed);
             match_.revealed1 = true;
         } else {
-            if (combinedHash != match_.player2CombinedHash) revert GwentArena__HashMismatch();
+            if (combinedHash != match_.player2CombinedHash)
+                revert GwentArena__HashMismatch();
             _packRoundData(matchId, false, r1Packed, r2Packed, r3Packed);
             match_.revealed2 = true;
         }
@@ -817,8 +822,10 @@ contract GwentArena is
 
     function timeoutCommit(uint256 matchId) external {
         Match storage match_ = matches[matchId];
-        if (match_.phase != Phase.WaitingForCommit) revert GwentArena__InvalidPhase();
-        if (block.timestamp <= match_.commitDeadline) revert GwentArena__DeadlineNotPassed();
+        if (match_.phase != Phase.WaitingForCommit)
+            revert GwentArena__InvalidPhase();
+        if (block.timestamp <= match_.commitDeadline)
+            revert GwentArena__DeadlineNotPassed();
 
         bool p1Committed = match_.player1CombinedHash != bytes32(0);
         bool p2Committed = match_.player2CombinedHash != bytes32(0);
@@ -852,8 +859,8 @@ contract GwentArena is
 
     function timeoutReveal(uint256 matchId) external {
         Match storage match_ = matches[matchId];
-        require(match_.phase == Phase.WaitingForReveal, "Not in reveal phase");
-        require(block.timestamp > match_.revealDeadline, "Reveal still active");
+        if (match_.phase != Phase.WaitingForReveal) revert GwentArena__InvalidPhase();
+        if (block.timestamp <= match_.revealDeadline) revert GwentArena__DeadlineNotPassed();
 
         bool p1Revealed = match_.player1PackedRounds.length > 0;
         bool p2Revealed = match_.player2PackedRounds.length > 0;
@@ -885,22 +892,17 @@ contract GwentArena is
         emit TimeoutResolved(matchId, match_.result);
     }
 
-    function claimRewards(uint256 matchId) external nonReentrant {
-        Match storage match_ = matches[matchId];
-        require(
-            msg.sender == match_.player1 || msg.sender == match_.player2,
-            "Not player"
-        );
-        require(match_.phase == Phase.Completed, "Match not completed");
-
+    function claimPendingBalance() external nonReentrant {
         uint256 reward = pendingRewards[msg.sender];
+        pendingRewards[msg.sender] = 0;
 
-        if (reward > 0) {
-            pendingRewards[msg.sender] = 0;
-            cardToken.mintGameCurrency(msg.sender, reward);
+        if (reward == 0) revert GwentArena__NoRewardsToClaim();
+        cardToken.mintGameCurrency(msg.sender, reward);
+
+        // Cleanup status so player can enter the arena again
+        if (playerEntries[msg.sender].isMatched) {
+            delete playerEntries[msg.sender];
         }
-
-        delete playerEntries[msg.sender];
 
         emit RewardsClaimed(msg.sender, reward);
     }
@@ -912,18 +914,11 @@ contract GwentArena is
         cardToken.mintGameCurrency(treasury, fees);
     }
 
-    function claimPendingBalance() external nonReentrant {
-        uint256 reward = pendingRewards[msg.sender];
-        require(reward > 0, "No rewards to claim");
-        pendingRewards[msg.sender] = 0;
-        cardToken.mintGameCurrency(msg.sender, reward);
-        emit RewardsClaimed(msg.sender, reward);
-    }
 
     function cancelEntry() external nonReentrant {
         ArenaEntry storage entry = playerEntries[msg.sender];
-        require(entry.enterBlock > 0, "Not in arena");
-        require(!entry.isMatched, "Already matched");
+        if (entry.enterBlock == 0) revert GwentArena__NotInArena();
+        if (entry.isMatched) revert GwentArena__AlreadyMatched();
 
         cardToken.setTransferLock(msg.sender, false);
         cardToken.mintGameCurrency(msg.sender, entry.stakeAmount);
@@ -1120,20 +1115,37 @@ contract GwentArena is
         return true;
     }
 
-    function getMatchPackedRounds(
-        uint256 matchId,
-        bool isPlayer1
-    ) external view returns (uint256[] memory) {
-        return
-            isPlayer1
-                ? matches[matchId].player1PackedRounds
-                : matches[matchId].player2PackedRounds;
-    }
 
-    function getMatchRoundLengths(
-        uint256 matchId
-    ) external view returns (uint256) {
-        return matches[matchId].roundLengths;
+    /**
+     * @notice Scans the matches for ongoing battles (not completed).
+     * @param offset The matchId to start scanning from.
+     * @param limit The maximum number of matches to return.
+     */
+    function getActiveMatches(
+        uint256 offset,
+        uint256 limit
+    ) external view returns (uint256[] memory activeIds) {
+        uint256 total = matchCount;
+        if (offset >= total) return new uint256[](0);
+
+        uint256 maxScan = offset + 1000; // Safety limit to prevent timeouts
+        if (maxScan > total) maxScan = total;
+
+        uint256[] memory temp = new uint256[](limit);
+        uint256 count = 0;
+
+        for (uint256 i = offset; i < maxScan && count < limit; i++) {
+            if (matches[i].phase != Phase.Completed) {
+                temp[count] = i;
+                count++;
+            }
+        }
+
+        activeIds = new uint256[](count);
+        for (uint256 i = 0; i < count; i++) {
+            activeIds[i] = temp[i];
+        }
+        return activeIds;
     }
 
     function calculateFinalPower_External(
