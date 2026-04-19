@@ -8,12 +8,13 @@ systemimpl3: 0xa68fbfb64084edbce1d17954a7ef668a81974331
 
 systemimpl4: 0x63AA06d6375494B59Eb7B622e723387B7bebFD66
 
-systemimpl7: `0xa68fbfb64084edbce1d17954a7ef668a81974331` (human readable InspectCard)
+systemimpl5: `0xa68fbfb64084edbce1d17954a7ef668a81974331` (human readable InspectCard)
 
 ## GwentArena
 proxy: `0x7B417Fa3cfCA13A3b8B83703B8ACB4be3997c6Bd`
 arenaimpl1: `0x63AA06d6375494B59Eb7B622e723387B7bebFD66`
 arenaimpl2: `0x744BE2bf302B917D2ac1f00C6456637Ea562e5B9` (add getactivematch)
+arenaimpl3: `0xa7F8033D034A59c163c5e1818b16ffdFE80CB8EA` (fix waitreward and entry fee)
 
 systemproxy: 0x49eE0547272E50Fec45e8C11E0148BF97c803f24
 arenaproxy: 0x7B417Fa3cfCA13A3b8B83703B8ACB4be3997c6Bd

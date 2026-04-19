@@ -46,8 +46,8 @@ contract GwentArena is
     IGwentCardToken public cardToken;
     address public treasury;
 
-    uint256 public entryFee = 50 ether;
-    uint256 public waitRewardPerBlock = 0.001 ether;
+    uint256 public entryFee = 50;
+    uint256 public rewardInterval = 10; // 1 token every 10 blocks
     uint256 public commitTimeout = 3 days;
     uint256 public revealTimeout = 1 days;
     uint256 public callerRewardPercent = 1;
@@ -148,7 +148,7 @@ contract GwentArena is
     }
 
     function version() external pure virtual returns (uint256) {
-        return 2;
+        return 3;
     }
 
     function setEntryFee(
@@ -169,10 +169,10 @@ contract GwentArena is
         callerRewardPercent = _percent;
     }
 
-    function setWaitRewardPerBlock(
-        uint256 _reward
+    function setRewardInterval(
+        uint256 _interval
     ) external virtual onlyRole(DEFAULT_ADMIN_ROLE) {
-        waitRewardPerBlock = _reward;
+        rewardInterval = _interval;
     }
 
     function setCommitTimeout(
@@ -223,12 +223,11 @@ contract GwentArena is
         address player
     ) external view virtual returns (uint256) {
         ArenaEntry storage entry = playerEntries[player];
-        if (entry.enterBlock == 0 || entry.isMatched) return 0;
+        if (entry.enterBlock == 0 || entry.isMatched || rewardInterval == 0)
+            return 0;
 
         uint256 blocksWaited = block.number - entry.enterBlock;
-        uint256 timeReward = blocksWaited * waitRewardPerBlock;
-
-        return timeReward;
+        return blocksWaited / rewardInterval;
     }
 
     function enterArena(
@@ -363,11 +362,11 @@ contract GwentArena is
     function _calculateWaitReward(
         uint256 enterBlock
     ) internal view returns (uint256) {
+        if (enterBlock == 0 || rewardInterval == 0) return 0;
         uint256 blocksWaited = block.number > enterBlock
             ? (block.number - enterBlock)
             : 0;
-        uint256 timeReward = blocksWaited * waitRewardPerBlock;
-        return timeReward;
+        return blocksWaited / rewardInterval;
     }
 
     function _createMatch(address player1, address player2) internal {
@@ -409,19 +408,24 @@ contract GwentArena is
 
     function commitPlays(uint256 matchId, bytes32 combinedHash) external {
         Match storage match_ = matches[matchId];
-        if (msg.sender != match_.player1 && msg.sender != match_.player2) revert GwentArena__NotPlayer();
-        if (match_.phase != Phase.WaitingForCommit) revert GwentArena__InvalidPhase();
-        if (block.timestamp > match_.commitDeadline) revert GwentArena__DeadlinePassed();
+        if (msg.sender != match_.player1 && msg.sender != match_.player2)
+            revert GwentArena__NotPlayer();
+        if (match_.phase != Phase.WaitingForCommit)
+            revert GwentArena__InvalidPhase();
+        if (block.timestamp > match_.commitDeadline)
+            revert GwentArena__DeadlinePassed();
 
         bool isPlayer1 = msg.sender == match_.player1;
 
         if (isPlayer1) {
             if (combinedHash == bytes32(0)) revert GwentArena__InvalidHash();
-            if (match_.player1CombinedHash != bytes32(0)) revert GwentArena__AlreadyCommitted();
+            if (match_.player1CombinedHash != bytes32(0))
+                revert GwentArena__AlreadyCommitted();
             match_.player1CombinedHash = combinedHash;
         } else {
             if (combinedHash == bytes32(0)) revert GwentArena__InvalidHash();
-            if (match_.player2CombinedHash != bytes32(0)) revert GwentArena__AlreadyCommitted();
+            if (match_.player2CombinedHash != bytes32(0))
+                revert GwentArena__AlreadyCommitted();
             match_.player2CombinedHash = combinedHash;
         }
 
@@ -859,8 +863,10 @@ contract GwentArena is
 
     function timeoutReveal(uint256 matchId) external {
         Match storage match_ = matches[matchId];
-        if (match_.phase != Phase.WaitingForReveal) revert GwentArena__InvalidPhase();
-        if (block.timestamp <= match_.revealDeadline) revert GwentArena__DeadlineNotPassed();
+        if (match_.phase != Phase.WaitingForReveal)
+            revert GwentArena__InvalidPhase();
+        if (block.timestamp <= match_.revealDeadline)
+            revert GwentArena__DeadlineNotPassed();
 
         bool p1Revealed = match_.player1PackedRounds.length > 0;
         bool p2Revealed = match_.player2PackedRounds.length > 0;
@@ -913,7 +919,6 @@ contract GwentArena is
         pendingFees = 0;
         cardToken.mintGameCurrency(treasury, fees);
     }
-
 
     function cancelEntry() external nonReentrant {
         ArenaEntry storage entry = playerEntries[msg.sender];
@@ -1114,7 +1119,6 @@ contract GwentArena is
         playerEntries[player2].isMatched = true;
         return true;
     }
-
 
     /**
      * @notice Scans the matches for ongoing battles (not completed).

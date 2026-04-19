@@ -10,13 +10,13 @@ contract UpgradeArena is Script {
         address proxyAddress = 0x7B417Fa3cfCA13A3b8B83703B8ACB4be3997c6Bd;
 
         vm.startBroadcast();
-        
-        // Deploy the new implementation (Version 2)
+
+        // Deploy the new implementation (Version 3)
         GwentArena newImpl = new GwentArena();
-        
+
         // Perform the upgrade
         GwentArena(proxyAddress).upgradeTo(address(newImpl));
-        
+
         vm.stopBroadcast();
     }
 }
