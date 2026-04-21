@@ -29,7 +29,10 @@ You don't need to be a blockchain expert to rule the Arena. Here is how you get 
 Visit the `GwentCardToken` contract to swap ETH for Gwent Tokens. These tokens are your key to opening packs and entering tournaments.
 
 ### 2. **Build your Deck** 🎁
-Go to the `GwentSystem` and open your **First Pack for FREE**. You'll get 24 random cards to start your collection. Our "Luck Engine" (Chainlink VRF) ensures every card drop is 100% fair.
+Choose your favorite Faction and click "Open". For your **very first opening only**, the system will **automatically multiply your request by 4** for free. 
+
+> [!WARNING]
+> **One-Shot Bonus**: You don't get 4 separate choices. The very first time you click "Open" for any faction, the system uses your one-time newbie bonus to give you 4 packs worth of cards from that specific faction. Choose wisely!
 
 ### 3. **Enter the Arena** ⚔️
 Join the matchmaking queue in `GwentArena`. While you wait for an opponent, you **earn passive rewards** just for being patient. Once a match is found, our "Auto-Referee" handles the scoring so you can focus on strategy.

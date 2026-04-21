@@ -23,7 +23,9 @@ You can buy Gwent Tokens (ID 0) at a rate of 1 ETH = 1,000 Tokens. The `GwentCar
 
 ### 2. Opening Packs (The Newbie Bonus)
 Once you have tokens, go to the `GwentSystem` contract to open a Faction Pack.
-*   🎁 **The Welcome Gift**: The very first time you call any `open...Pack` function, it is **FREE** and the amount is automatically set to **4 units** (resulting in 24 random cards).
+*   🎁 **The Welcome Gift**: The first time you open **any** pack, it is **FREE** and the system gives you **4 Packs** automatically in that single transaction.
+*   **⚠️ One-Shot Warning**: You do NOT get 4 separate free choices. The moment you click "Open" for the first time, your newbie bonus is used up. 
+*   **Strategic Tip**: Only **Northern Realms** (24 cards) gives you enough units to enter the Arena (Min 22) for free. 
 *   **Subsequent Packs**: Cost 100 Gwent Tokens per pack amount.
 
 ### 3. The VRF & Claiming Workflow

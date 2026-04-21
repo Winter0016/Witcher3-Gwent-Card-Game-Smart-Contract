@@ -8,18 +8,26 @@ The `GwentSystem.sol` contract is the backbone of the protocol's economy. it han
 
 There are five Faction Packs available in the system. Opening a pack initiates a request for provably fair randomness.
 
-### **The Starter Pack (New Players)**
-The protocol rewards new players with their first taste of Gwent.
-*   **Benefit**: The first pack any player opens is **FREE**.
-*   **Content**: A fixed 4-card starter set to get you into the Arena immediately.
+### **The Starter Boost (New Players)**
+The protocol rewards new players by kickstarting their favorite faction immediately.
+*   **The Bonus**: The first time any player opens a pack, it is **FREE**.
+*   **The Multiplier**: The system automatically treats the first opening as a **4-Pack request** for that specific faction. 
+*   **⚠️ One-Shot Bonus**: This is a single-transaction benefit. You do not get 4 separate choices; whatever faction you pick first is the one that gets the 4x boost. Once you open your first pack, the bonus is gone forever.
 
 ### **Faction Packs (Standard)**
 *   **Price**: 100 Gwent Tokens per pack.
-*   **Factions**: Northern Realms, Scoia'tael, Nilfgaard, Monsters, and Skellige.
-*   **Bulk Opening**: Players can specify the `amount` of packs to open in a single blockchain request.
+*   **Bulk Opening**: Specifying `amount` multiplies your requested packs.
 
-> [!NOTE]
-> **Permanent Liquidity**: Unlike unit cards, **Game Currency (ID 0)** is never locked by the Arena. You can always transfer currency to other players or open new packs, even while your units are locked in an active match.
+| Faction | Cards per Pack | Starter Yield (4x) | Arena Ready? |
+| :--- | :--- | :--- | :--- |
+| **Northern Realms** | **6** | **24** | ✅ **YES** |
+| **Scoia'tael** | 5 | 20 | ❌ No (Need 22) |
+| **Monsters** | 5 | 20 | ❌ No (Need 22) |
+| **Skellige** | 4 | 16 | ❌ No (Need 22) |
+| **Nilfgaard** | 3 | 12 | ❌ No (Need 22) |
+
+> [!IMPORTANT]
+> **The Starter Trap**: If you pick any faction other than Northern Realms for your first free opening, you will not have enough cards to enter the Arena. You will need to buy additional Gwent Tokens to complete your deck.
 
 ---
 
