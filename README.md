@@ -36,27 +36,8 @@ Go to the `GwentSystem` and open your **First Pack for FREE**. You'll get 24 ran
 ### 3. **Enter the Arena** ⚔️
 Join the matchmaking queue in `GwentArena`. While you wait for an opponent, you **earn passive rewards** just for being patient. Once a match is found, our "Auto-Referee" handles the scoring so you can focus on strategy.
 
+
 ---
-
-## 🔄 How a Match Works (Simple View)
-
-```mermaid
-sequenceDiagram
-    participant You as Player
-    participant Game as Gwent Protocol
-    participant Ref as Auto-Referee
-
-    You->>Game: Join the Battle (Stake Tokens)
-    Note right of Game: Game locks your cards so no one can cheat.
-    
-    Ref-->>Game: Pairs you with a Challenger!
-    
-    You->>Game: Secretly "Seal" your moves.
-    Note right of Game: Opponent cannot see your strategy yet.
-    
-    You->>Game: Reveal your moves.
-    Ref-->>You: Calculates Score & Awards the Prize!
-```
 
 ---
 
