@@ -27,53 +27,43 @@ The protocol is designed for high scalability and modularity. Command-and-contro
 
 ```mermaid
 graph LR
-    subgraph Player_Layer [Player Actions]
+    subgraph P [Player]
         User((Player))
     end
 
-    subgraph Economic_Layer [Assets & Economy]
-        WETH[ETH / WETH]
+    subgraph E [Economy]
         Token[GwentCardToken]
     end
 
-    subgraph Game_Layer [Protocol Engine]
-        Arena[GwentArena Proxy]
-        System[GwentSystem Proxy]
-        Logic{CardGameLogic}
+    subgraph G [Game Engine]
+        Arena[Arena Proxy]
+        System[System Proxy]
     end
 
-    subgraph Infrastructure [Trust & Automation]
-        Bot((Automation))
+    subgraph I [Infrastructure]
+        Automation((Automation))
         VRF[VRF V2.5]
     end
 
-    subgraph Governance_Layer [DAO & Security]
-        DAO[Gwent DAO]
-        Council[Security Council]
-    end
+    %% 1. Onboarding
+    User -- "1. Pay ETH" --> Token
+    Token -- "2. Mint Currency" --> User
 
-    %% Flows
-    User -->|Stake ETH| Token
-    User -->|Open Pack| System
-    User -->|Enter Arena| Arena
-    
-    System -->|Burn| Token
-    Arena -->|Lock Cards| Token
-    
-    Bot -->|Referees| Arena
-    VRF -->|Randomness| System
-    Arena -->|Scoring| Logic
-    
-    DAO -->|Update| Token
-    DAO -->|Update| Arena
-    DAO -->|Update| System
-    Council -->|Veto| DAO
+    %% 2. Progression
+    User -- "3. Open Pack" --> System
+    System -- "4. Burn Currency" --> Token
+    VRF -- "5. Randomness" --> System
+
+    %% 3. Battle
+    User -- "6. Join Match" --> Arena
+    Arena -- "7. Lock Cards" --> Token
+    Automation -- "8. Referee" --> Arena
 
     %% Styling
-    style Player_Layer fill:#f9f,stroke:#333
-    style Economic_Layer fill:#fff,stroke:#333
-    style Game_Layer fill:#e1f5fe,stroke:#01579b
-    style Infrastructure fill:#f0f4c3,stroke:#827717
+    style P fill:#f9f,stroke:#333
+    style E fill:#fff,stroke:#333
+    style G fill:#e1f5fe,stroke:#01579b
+    style I fill:#f0f4c3,stroke:#827717
 ```
 
 ---
