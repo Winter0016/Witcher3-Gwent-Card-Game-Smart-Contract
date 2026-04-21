@@ -60,7 +60,7 @@ Call `enterArena(uint256[] ids, uint256[] amounts, uint256 stakeAmount)`.
 *   **Status**: Check `getPlayerEntry(your_address)` to see if `isMatched` is true.
 
 > [!CAUTION]
-> **Treat your Enrollment Seriously!** Once you enter the Arena and a match is found, your tokens are locked. If you abandon the match or forget your deadlines, the protocol's "Sentinels" (other players) will catch you and you will lose everything.
+> **Treat your Enrollment Seriously!** Once you enter the Arena and a match is found, your **unit cards** are locked to prevent cheating. However, **Game Currency (ID 0) remains liquid**—you can still buy packs or transfer currency while you are in the match.
 
 ### 2. Scouting
 As soon as you are matched, get your `matchId` and call **`getMatchInfo(matchId)`**.

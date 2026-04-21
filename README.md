@@ -1,14 +1,23 @@
-# 🃏 Decentralized Gwent Protocol
+# 🃏 Decentralized Gwent: The Witcher's Arena
 
 [![Network: Arbitrum Sepolia](https://img.shields.io/badge/Network-Arbitrum_Sepolia-blue.svg)](https://sepolia.arbiscan.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
-A provably fair, community-governed card game ecosystem built on **Arbitrum Sepolia**. This protocol merges high-fidelity strategy with decentralized trust, featuring a **UUPS-upgradeable** engine, **Chainlink VRF** randomness, and a robust **DAO-Guardian** security model.
+**Forge your deck. Master the rows. Rule the Continent.**
+
+Decentralized Gwent is a high-stakes, on-chain card strategy game where every move is secured by the blockchain and every drop of luck is provably fair. Merging high-fidelity strategy with decentralized trust, the protocol features a **UUPS-upgradeable** engine, **Chainlink VRF** randomness, and a robust **DAO-Guardian** security model.
+
+### 🛡️ Play for More Than Just Victory
+*   **The Patience Economy**: Earn passive rewards (Gwent Tokens) just for waiting in the matchmaking queue.
+*   **Strategic Commitment**: Scout your opponent's entire deck before the battle begins, plan your counters, and "Seal" your 3-round strategy. The **Commit-Reveal** system ensures that no one can reactively change their moves once the duel starts.
+*   **Autonomous Referee**: Powered by **Chainlink Automation**, matches are paired and resolved instantly without any manual intervention.
+*   **True Ownership**: Every card is an NFT on Arbitrum Sepolia, owned and tradable by you.
 
 > [!TIP]
-> **New to the Arena?** Start with our [Step-by-Step Player Tutorial](./docs/TUTORIAL.md) to go from your first pack to your first victory.
-> 
-> Explore the [Combat & Scoring Guide](./docs/CARD_GAME_LOGIC.md) for deep-dives into unit abilities and arena laws.
+> **🚀 Quick Start**
+> 1.  **Fund your Journey**: Buy game tokens in Step 1 of the [Player Tutorial](./docs/TUTORIAL.md).
+> 2.  **Open your Starter Pack**: Get your first 24 cards for **FREE** via the [Gwent System](./docs/GWENT_SYSTEM.md).
+> 3.  **Enter the Arena**: Join the queue and start earning while you wait for a challenger.
 
 ---
 
@@ -18,12 +27,18 @@ The protocol is designed for high scalability and modularity. Command-and-contro
 
 ```mermaid
 graph TD
-    User((Player)) -->|Enters Arena| Arena[GwentArena Proxy]
+    User((Player)) -->|Pays ETH / WETH| Token[GwentCardToken]
+    Token -->|Mints Game Currency| User
     User -->|Opens Packs| System[GwentSystem Proxy]
+    User -->|Enters Arena| Arena[GwentArena Proxy]
+    System -->|Burns Game Currency| Token
+    Arena -->|Locks Unit Cards| Token
+    Bot((Chainlink Automation)) -->|Triggers Matchmaking & Resolution| Arena
     Arena -->|Calculates Score| Logic{CardGameLogic Lib}
     System -->|Requests Randomness| VRF[Chainlink VRF V2.5]
     VRF -->|Fulfills| System
-    DAO[Gwent DAO] -->|Upgrades/Params| Arena
+    DAO[Gwent DAO] -->|Upgrades/Params| Token
+    DAO -->|Upgrades/Params| Arena
     DAO -->|Upgrades/Params| System
     Council[Security Council] -->|Veto Power| DAO
 ```
@@ -84,10 +99,21 @@ cast call $ARENA_PROXY "hasRole(bytes32,address)(bool)" 0x00...00 $TIMELOCK
 
 ---
 
+## 🤖 The Invisible Referee (Chainlink Automation)
+
+Matches in the Gwent Arena are entirely autonomous. We utilize **Chainlink Automation** to perform the heavy lifting of game management:
+
+-   **Instant Matchmaking**: The moment two eligible players enter the queue, Automation triggers the match initialization.
+-   **Self-Resolving Battles**: As soon as the final player reveals their cards, Automation triggers the scoring engine to calculate the winner and distribute the pool.
+-   **Anti-Stall Protection**: If a player abandons a match, Automation allows "Sentinels" (the community) to trigger a timeout resolution, ensuring prizes are never stuck in limbo.
+
+---
+
 ## 📜 Technical Highlights
 *   **UUPS Proxy Pattern**: Future-proof logic upgrades with minimal gas overhead.
 *   **Storage Gaps**: 50-slot `__gap` implementation ensures zero-collision upgrades to V2.
 *   **Provable Fair**: Chainlink VRF V2.5 ensures pack generation is tamper-proof.
+*   **Self-Resolving Matches**: Chainlink Automation handles real-time matchmaking and scoring settlement.
 *   **Scalable Queue**: O(1) head-pointer matchmaking designed for thousands of active players.
 
 ---

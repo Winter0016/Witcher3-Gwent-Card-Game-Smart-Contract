@@ -18,6 +18,9 @@ The protocol rewards new players with their first taste of Gwent.
 *   **Factions**: Northern Realms, Scoia'tael, Nilfgaard, Monsters, and Skellige.
 *   **Bulk Opening**: Players can specify the `amount` of packs to open in a single blockchain request.
 
+> [!NOTE]
+> **Permanent Liquidity**: Unlike unit cards, **Game Currency (ID 0)** is never locked by the Arena. You can always transfer currency to other players or open new packs, even while your units are locked in an active match.
+
 ---
 
 ## 🎲 The Card Generation Cycle

@@ -17,7 +17,7 @@ These functions are the core interactive elements for players in the Arena.
 *   **Purpose**: Joins the waiting queue for a match.
 *   **Patience Reward**: While you wait in the queue, you accumulate a "Passive Income" (default 0.001 Gwent per block). **Crucial Rule**: This reward is only added to your balance **once a match is successfully found**.
 *   **Requirements**: Must stake the current `entryFee`. The provided deck must be valid and owned by the player.
-*   **Effect**: Locks the player's cards and starts the "Wait Timer."
+*   **Effect**: Locks the player's **cards (units)** to prevent mid-match trading, but **Game Currency (ID 0) remains fully liquid** and transferrable.
 
 ### `commitPlays` & `revealPlays`
 *   **Purpose**: Reveal your plaintext cards and salt to settle the score.
