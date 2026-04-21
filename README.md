@@ -26,46 +26,32 @@ Decentralized Gwent is a high-stakes, on-chain card strategy game where every mo
 The protocol is designed for high scalability and modularity. Command-and-control logic is separated from the core game engine to minimize gas costs and maximize security.
 
 ```mermaid
-graph LR
-    %% Infrastructure Layer
-    subgraph Infrastructure [Trust & Automation]
-        VRF[VRF V2.5]
-        Automation((Automation))
-    end
+graph TD
+    User((Player))
+    
+    %% Core Actions
+    User -->|1. Buy Currency (ETH/WETH)| Token[GwentCardToken]
+    User -->|2. Open Packs| System[GwentSystem]
+    User -->|3. Enter Arena| Arena[GwentArena]
 
-    %% Central Highway (The Game)
-    subgraph P [Player]
-        User((Player))
-    end
+    %% Internal Protocol Logic
+    System -.->|Burn Currency| Token
+    Arena -.->|Lock Unit Cards| Token
+    
+    %% Infrastructure
+    VRF[Chainlink VRF] ==>|Provable Randomness| System
+    Auto[Chainlink Automation] ==>|Autonomous Referee| Arena
 
-    subgraph G [Game Engine]
-        System[GwentSystem]
-        Arena[GwentArena]
-    end
-
-    %% Economy Layer
-    subgraph E [Economy]
-        Token[GwentCardToken]
-    end
-
-    %% 1. Infrastructure Actions (From Top)
-    VRF -- "Provable Randomness" --> System
-    Automation -- "Autonomous Matchmaking & Scoring" --> Arena
-
-    %% 2. User Highway (Middle)
-    User -- "Open Pack" --> System
-    User -- "Join Battle" --> Arena
-
-    %% 3. Economic Flow (From Bottom)
-    User -- "Buy Currency (ETH)" --> Token
-    System -- "Burn Currency" --> Token
-    Arena -- "Lock Unit Cards" --> Token
+    %% Governance
+    DAO[Gwent DAO] --- Token
+    DAO --- System
+    DAO --- Arena
 
     %% Styling
-    style Infrastructure fill:#f0f4c3,stroke:#827717
-    style P fill:#f9f,stroke:#333
-    style G fill:#e1f5fe,stroke:#01579b
-    style E fill:#fff,stroke:#333
+    style User fill:#f9f,stroke:#333
+    style Token fill:#fff,stroke:#333
+    style System fill:#e1f5fe,stroke:#01579b
+    style Arena fill:#e1f5fe,stroke:#01579b
 ```
 
 ---
