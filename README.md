@@ -21,8 +21,6 @@ Decentralized Gwent is a high-stakes, on-chain card strategy game where every mo
 
 ---
 
----
-
 ## 🚀 The Player's Journey (1-2-3 Guide)
 
 You don't need to be a blockchain expert to rule the Arena. Here is how you get started:
@@ -36,8 +34,6 @@ Go to the `GwentSystem` and open your **First Pack for FREE**. You'll get 24 ran
 ### 3. **Enter the Arena** ⚔️
 Join the matchmaking queue in `GwentArena`. While you wait for an opponent, you **earn passive rewards** just for being patient. Once a match is found, our "Auto-Referee" handles the scoring so you can focus on strategy.
 
-
----
 
 ---
 
