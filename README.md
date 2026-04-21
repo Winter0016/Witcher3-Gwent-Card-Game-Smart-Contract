@@ -27,31 +27,40 @@ The protocol is designed for high scalability and modularity. Command-and-contro
 
 ```mermaid
 graph TD
-    User((Player))
-    
-    %% Core Actions
-    User -->|1. Buy Currency (ETH/WETH)| Token[GwentCardToken]
-    User -->|2. Open Packs| System[GwentSystem]
-    User -->|3. Enter Arena| Arena[GwentArena]
+    User["Player"]
+    Token["GwentCardToken"]
+    System["GwentSystem"]
+    Arena["GwentArena"]
+    VRF["Chainlink VRF"]
+    Auto["Chainlink Automation"]
+    DAOG["Gwent DAO"]
 
-    %% Internal Protocol Logic
-    System -.->|Burn Currency| Token
-    Arena -.->|Lock Unit Cards| Token
-    
-    %% Infrastructure
-    VRF[Chainlink VRF] ==>|Provable Randomness| System
-    Auto[Chainlink Automation] ==>|Autonomous Referee| Arena
+    %% User Flow
+    User -- "Buy Currency" --> Token
+    User -- "Open Packs" --> System
+    User -- "Enter Arena" --> Arena
 
-    %% Governance
-    DAO[Gwent DAO] --- Token
-    DAO --- System
-    DAO --- Arena
+    %% Internal Flow
+    System -- "Burn" --- Token
+    Arena -- "Lock" --- Token
+
+    %% Trust Flow
+    VRF -- "Randomness" --> System
+    Auto -- "Automation" --> Arena
+
+    %% Admin Flow
+    DAOG --- Token
+    DAOG --- System
+    DAOG --- Arena
 
     %% Styling
     style User fill:#f9f,stroke:#333
     style Token fill:#fff,stroke:#333
     style System fill:#e1f5fe,stroke:#01579b
     style Arena fill:#e1f5fe,stroke:#01579b
+    style VRF fill:#f0f4c3,stroke:#827717
+    style Auto fill:#f0f4c3,stroke:#827717
+    style DAOG fill:#fffde7,stroke:#fbc02d
 ```
 
 ---
