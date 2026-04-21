@@ -16,7 +16,7 @@ Decentralized Gwent is a high-stakes, on-chain card strategy game where every mo
 > [!TIP]
 > **🚀 Quick Start**
 > 1.  **Fund your Journey**: Buy game tokens in Step 1 of the [Player Tutorial](./docs/TUTORIAL.md).
-> 2.  **Open your Starter Pack**: Get your first 24 cards for **FREE** via the [Gwent System](./docs/GWENT_SYSTEM.md).
+> 2.  **Pick your Faction**: Get your **First 4 Packs for FREE** via the [Gwent System](./docs/GWENT_SYSTEM.md).
 > 3.  **Enter the Arena**: Join the queue and start earning while you wait for a challenger.
 
 ---
