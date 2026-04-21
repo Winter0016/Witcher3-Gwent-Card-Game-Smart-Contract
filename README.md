@@ -27,43 +27,45 @@ The protocol is designed for high scalability and modularity. Command-and-contro
 
 ```mermaid
 graph LR
+    %% Infrastructure Layer
+    subgraph Infrastructure [Trust & Automation]
+        VRF[VRF V2.5]
+        Automation((Automation))
+    end
+
+    %% Central Highway (The Game)
     subgraph P [Player]
         User((Player))
     end
 
+    subgraph G [Game Engine]
+        System[GwentSystem]
+        Arena[GwentArena]
+    end
+
+    %% Economy Layer
     subgraph E [Economy]
         Token[GwentCardToken]
     end
 
-    subgraph G [Game Engine]
-        Arena[Arena Proxy]
-        System[System Proxy]
-    end
+    %% 1. Infrastructure Actions (From Top)
+    VRF -- "Provable Randomness" --> System
+    Automation -- "Autonomous Matchmaking & Scoring" --> Arena
 
-    subgraph I [Infrastructure]
-        Automation((Automation))
-        VRF[VRF V2.5]
-    end
+    %% 2. User Highway (Middle)
+    User -- "Open Pack" --> System
+    User -- "Join Battle" --> Arena
 
-    %% 1. Onboarding
-    User -- "1. Pay ETH" --> Token
-    Token -- "2. Mint Currency" --> User
-
-    %% 2. Progression
-    User -- "3. Open Pack" --> System
-    System -- "4. Burn Currency" --> Token
-    VRF -- "5. Randomness" --> System
-
-    %% 3. Battle
-    User -- "6. Join Match" --> Arena
-    Arena -- "7. Lock Cards" --> Token
-    Automation -- "8. Referee" --> Arena
+    %% 3. Economic Flow (From Bottom)
+    User -- "Buy Currency (ETH)" --> Token
+    System -- "Burn Currency" --> Token
+    Arena -- "Lock Unit Cards" --> Token
 
     %% Styling
+    style Infrastructure fill:#f0f4c3,stroke:#827717
     style P fill:#f9f,stroke:#333
-    style E fill:#fff,stroke:#333
     style G fill:#e1f5fe,stroke:#01579b
-    style I fill:#f0f4c3,stroke:#827717
+    style E fill:#fff,stroke:#333
 ```
 
 ---
