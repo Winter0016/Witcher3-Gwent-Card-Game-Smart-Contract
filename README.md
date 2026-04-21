@@ -26,21 +26,54 @@ Decentralized Gwent is a high-stakes, on-chain card strategy game where every mo
 The protocol is designed for high scalability and modularity. Command-and-control logic is separated from the core game engine to minimize gas costs and maximize security.
 
 ```mermaid
-graph TD
-    User((Player)) -->|Pays ETH / WETH| Token[GwentCardToken]
-    Token -->|Mints Game Currency| User
-    User -->|Opens Packs| System[GwentSystem Proxy]
-    User -->|Enters Arena| Arena[GwentArena Proxy]
-    System -->|Burns Game Currency| Token
-    Arena -->|Locks Unit Cards| Token
-    Bot((Chainlink Automation)) -->|Triggers Matchmaking & Resolution| Arena
-    Arena -->|Calculates Score| Logic{CardGameLogic Lib}
-    System -->|Requests Randomness| VRF[Chainlink VRF V2.5]
-    VRF -->|Fulfills| System
-    DAO[Gwent DAO] -->|Upgrades/Params| Token
-    DAO -->|Upgrades/Params| Arena
-    DAO -->|Upgrades/Params| System
-    Council[Security Council] -->|Veto Power| DAO
+graph LR
+    subgraph Player_Layer [Player Actions]
+        User((Player))
+    end
+
+    subgraph Economic_Layer [Assets & Economy]
+        WETH[ETH / WETH]
+        Token[GwentCardToken]
+    end
+
+    subgraph Game_Layer [Protocol Engine]
+        Arena[GwentArena Proxy]
+        System[GwentSystem Proxy]
+        Logic{CardGameLogic}
+    end
+
+    subgraph Infrastructure [Trust & Automation]
+        Bot((Automation))
+        VRF[VRF V2.5]
+    end
+
+    subgraph Governance_Layer [DAO & Security]
+        DAO[Gwent DAO]
+        Council[Security Council]
+    end
+
+    %% Flows
+    User -->|Stake ETH| Token
+    User -->|Open Pack| System
+    User -->|Enter Arena| Arena
+    
+    System -->|Burn| Token
+    Arena -->|Lock Cards| Token
+    
+    Bot -->|Referees| Arena
+    VRF -->|Randomness| System
+    Arena -->|Scoring| Logic
+    
+    DAO -->|Update| Token
+    DAO -->|Update| Arena
+    DAO -->|Update| System
+    Council -->|Veto| DAO
+
+    %% Styling
+    style Player_Layer fill:#f9f,stroke:#333
+    style Economic_Layer fill:#fff,stroke:#333
+    style Game_Layer fill:#e1f5fe,stroke:#01579b
+    style Infrastructure fill:#f0f4c3,stroke:#827717
 ```
 
 ---
