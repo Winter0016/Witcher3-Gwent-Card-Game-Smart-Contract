@@ -21,46 +21,41 @@ Decentralized Gwent is a high-stakes, on-chain card strategy game where every mo
 
 ---
 
-## 🏛️ Architecture Overview
+---
 
-The protocol is designed for high scalability and modularity. Command-and-control logic is separated from the core game engine to minimize gas costs and maximize security.
+## 🚀 The Player's Journey (1-2-3 Guide)
+
+You don't need to be a blockchain expert to rule the Arena. Here is how you get started:
+
+### 1. **Get your Gold** 💰
+Visit the `GwentCardToken` contract to swap ETH for Gwent Tokens. These tokens are your key to opening packs and entering tournaments.
+
+### 2. **Build your Deck** 🎁
+Go to the `GwentSystem` and open your **First Pack for FREE**. You'll get 24 random cards to start your collection. Our "Luck Engine" (Chainlink VRF) ensures every card drop is 100% fair.
+
+### 3. **Enter the Arena** ⚔️
+Join the matchmaking queue in `GwentArena`. While you wait for an opponent, you **earn passive rewards** just for being patient. Once a match is found, our "Auto-Referee" handles the scoring so you can focus on strategy.
+
+---
+
+## 🔄 How a Match Works (Simple View)
 
 ```mermaid
-graph TD
-    User["Player"]
-    Token["GwentCardToken"]
-    System["GwentSystem"]
-    Arena["GwentArena"]
-    VRF["Chainlink VRF"]
-    Auto["Chainlink Automation"]
-    DAOG["Gwent DAO"]
+sequenceDiagram
+    participant You as Player
+    participant Game as Gwent Protocol
+    participant Ref as Auto-Referee
 
-    %% User Flow
-    User -- "Buy Currency" --> Token
-    User -- "Open Packs" --> System
-    User -- "Enter Arena" --> Arena
-
-    %% Internal Flow
-    System -- "Burn" --- Token
-    Arena -- "Lock" --- Token
-
-    %% Trust Flow
-    VRF -- "Randomness" --> System
-    Auto -- "Automation" --> Arena
-
-    %% Admin Flow
-    DAOG --- Token
-    DAOG --- System
-    DAOG --- Arena
-
-    %% Styling
-    style User fill:#f9f,stroke:#333
-    style Token fill:#fff,stroke:#333
-    style System fill:#e1f5fe,stroke:#01579b
-    style Arena fill:#e1f5fe,stroke:#01579b
-    style VRF fill:#f0f4c3,stroke:#827717
-    style Auto fill:#f0f4c3,stroke:#827717
-    style DAOG fill:#fffde7,stroke:#fbc02d
+    You->>Game: Join the Battle (Stake Tokens)
+    Note right of Game: Game locks your cards so no one can cheat.
+    
+    Ref-->>Game: Pairs you with a Challenger!
+    
+    You->>Game: Secretly "Seal" your moves.
+    Note right of Game: Opponent cannot see your strategy yet.
+    
+    You->>Game: Reveal your moves.
+    Ref-->>You: Calculates Score & Awards the Prize!
 ```
 
 ---
